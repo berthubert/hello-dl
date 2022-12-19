@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.1)
-set(CMAKE_CXX_FLAGS "-Wall -Wextra -O3 -g")
+set(CMAKE_CXX_FLAGS "-Wall -Wextra -Og -g -march=native -msse2")
 
 find_package (Eigen3 3.3 REQUIRED NO_MODULE)
  
@@ -18,7 +18,12 @@ find_package(Threads REQUIRED)
 
 add_executable(hello-dl hello-dl.cc mnistreader.cc)
 target_link_libraries(hello-dl
-  fftw3
+  Eigen3::Eigen
+  z
+)
+
+add_executable(tensor tensor.cc)
+target_link_libraries(tensor
   Eigen3::Eigen
   z
 )
