@@ -109,7 +109,7 @@ int main()
   s.b2.randomize();
 
 
-  cout<<"Configuring network.. ";
+  cout<<"Configuring network";
   cout.flush();
 
   vector<ReluModel> models;  
@@ -117,7 +117,10 @@ int main()
     ReluModel rm;
     rm.init(s);
     models.push_back(rm);
+    cout<<".";
+    cout.flush();
   }
+  cout<<endl<<"Tying... ";
   TrackedFloat totalLoss=0;
   for(auto& m : models)
     totalLoss = totalLoss + m.loss;
@@ -161,7 +164,7 @@ int main()
     totalLoss.backward();
 
 
-    double lr=0.07;    
+    double lr=0.04;    
     {
       auto grad = s.w1.getGrad();
       grad *= lr;
