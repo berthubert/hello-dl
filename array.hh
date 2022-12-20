@@ -100,6 +100,13 @@ struct NNArray
     }
   }
 
+  void zero()
+  {
+    for(auto& item : d_store) {
+      item = (float)0;
+    }
+  }
+
   auto flatViewRow()
   {
     NNArray<T, ROWS*COLS, 1> ret;
