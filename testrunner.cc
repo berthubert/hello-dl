@@ -148,6 +148,18 @@ TEST_CASE("sigmoid advanced test") {
   CHECK(y.getGrad() == 3*4*SigmoidFunc::deriv(9.0));
 }
 
+TEST_CASE("sigmoid negative test") {
+  TrackedFloat x(-1.0);
+  TrackedFloat y(2.0);
+  TrackedFloat one(1.0);
+  TrackedFloat res = one-doFunc(x*x+y*y*y, SigmoidFunc());
+  
+  CHECK(res.getVal() ==   1-SigmoidFunc::func(9.0));
+  res.backward();
+  CHECK(x.getGrad() == 2*SigmoidFunc::deriv(9.0));
+  CHECK(y.getGrad() == -3*4*SigmoidFunc::deriv(9.0));
+}
+
 
 TEST_CASE("vector test") {
   vector<TrackedFloat> vec;
@@ -171,3 +183,20 @@ TEST_CASE("vector test") {
 }
 
 
+TEST_CASE("typical loss func test") {
+  TrackedFloat result(0.75);
+  TrackedFloat expected(1.0);
+  TrackedFloat loss = (expected - result) * (expected - result);
+
+  // expected^2 -2*expected*result +result^2
+  // deriv result:  -2*expected + 2 * result -> -0.5
+  
+  CHECK(loss.getVal() == (1-0.75)*(1-0.75));
+  loss.backward();
+  double grad = result.getGrad();
+  //  cout<<"grad: "<< grad <<endl;
+  loss.zeroGrad();
+
+  result = result.getVal() - 0.1*grad;
+  CHECK(loss.getVal() == doctest::Approx((1.0-0.80)*(1.0-0.80)));
+}
