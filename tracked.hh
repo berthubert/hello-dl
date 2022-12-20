@@ -297,7 +297,7 @@ TrackedNumber<T> operator+(const TrackedNumber<T>& lhs, const TrackedNumber<T>& 
   ret.impl->d_mode = TrackedNumberImp<T>::Modes::Addition;
   ret.impl->d_lhs = lhs.impl;
   ret.impl->d_rhs = rhs.impl;
-  ret.impl->d_grad = lhs.getVal(); // dimensions
+  //  ret.impl->d_grad = lhs.getVal(); // dimensions
   TrackedNumberImp<T>::setZero(ret.impl->d_grad);
   return ret;
 }
