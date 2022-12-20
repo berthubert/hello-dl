@@ -51,6 +51,7 @@ struct NNArray
     d_store.resize(ROWS*COLS);
   }
   std::vector<TrackedNumber<T>> d_store;
+
   TrackedNumber<T>& operator()(int x, int y)
   {
     return d_store.at(x*COLS + y);
@@ -107,6 +108,17 @@ struct NNArray
     }
   }
 
+  template<typename F>
+  auto applyFunc([[maybe_unused]] const F& f)
+  {
+    NNArray<T, ROWS, COLS> ret;
+    
+    ret.d_store.clear(); 
+    for(const auto& v : d_store)
+      ret.d_store.push_back(doFunc(v, f));
+    return ret;
+  }
+  
   auto flatViewRow()
   {
     NNArray<T, ROWS*COLS, 1> ret;
