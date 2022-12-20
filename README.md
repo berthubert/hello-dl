@@ -2,6 +2,10 @@
 From scratch introduction to modern machine learning. While tutorials using
 the industry mainstay PyTorch abound, this tutorial starts with matrices.
 
+# Status
+Implements a small autograd system. Initial experiments (like `first-relu`)
+look reasonably nice.
+
 # Data
 https://www.nist.gov/itl/products-and-services/emnist-dataset
 
