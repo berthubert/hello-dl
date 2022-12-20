@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.1)
-set(CMAKE_CXX_FLAGS "-Wall -Wextra -Og -g -march=native -msse2")
+set(CMAKE_CXX_FLAGS "-Wall -Wextra -O3 -g -march=native -msse2")
 
 find_package (Eigen3 3.3 REQUIRED NO_MODULE)
  
@@ -27,4 +27,16 @@ target_link_libraries(tensor
   Eigen3::Eigen
   z
 )
+add_executable(los los.cc)
+target_link_libraries(los
+  Eigen3::Eigen
+)
 
+add_executable(testrunner testrunner.cc arraytests.cc)
+
+target_link_libraries(testrunner
+  Eigen3::Eigen
+)
+
+enable_testing()
+add_test(testname testrunner)
