@@ -11,6 +11,25 @@ learning techniques.
 This project was inspired by [Georgi Gerganov](https://ggerganov.com/)'s
 AWESOME [C++ implementation of OpenAI's Whisper speech/translation model](https://github.com/ggerganov/whisper.cpp).
 
+# Mission statement
+
+ * Really make you feel what deep learning is all about
+   * Tools must do things you will be personally be impressed by
+ * Not skimp over the details, how does it ACTUALLY work
+ * Make reading the tool's source code a good learning experience
+ * Use language and terms that are compatible with modern day usage
+   * So you can also understand PyTorch tutorials
+ * However, also not confuse you with weird historical words
+ * Cover all the techniques that form the backbone of modern DL successes
+
+Non-goals:
+
+ * Turn you into a machine learning professional
+ * Teach you PyTorch
+
+The idea is that after you are done with the blog posts (yet to be written) and
+the tools that it should all make sense to you. 
+
 # Status
 So far this implements a small but pretty nice autograd system.  Initial
 experiments (like `first-relu`) look reasonably ok.
