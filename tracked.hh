@@ -2,6 +2,9 @@
 #include <Eigen/Dense>
 #include <memory>
 #include <string>
+#include <iostream>
+#include <fstream>
+
 extern std::ofstream g_tree;
 
 constexpr bool doLog{false};
@@ -138,8 +141,6 @@ struct TrackedNumberImp
       return d_val;
     else if(d_mode == Modes::Addition) 
       return d_val=(d_lhs->getVal() + d_rhs->getVal());
-    else if(d_mode == Modes::Subtraction) 
-      return d_val=(d_lhs->getVal() - d_rhs->getVal());
     else if(d_mode == Modes::Mult) 
       return d_val=(d_lhs->getVal() * d_rhs->getVal());
     else if(d_mode == Modes::Func) {
@@ -192,17 +193,6 @@ struct TrackedNumberImp
       if(doLog) std::cout<<"Addition going right, delivering "<< (mult) <<std::endl;
       d_rhs->backward(mult);
     }
-    else if(d_mode == Modes::Subtraction) {
-      if(g_tree) g_tree<<'"'<<(void*)this<< "\" [label=\""<<d_val<<"\\n-\"]\n";;
-      if(g_tree) g_tree<<'"'<<(void*)this<< "\" -> \""<<(void*)d_lhs.get()<<"\"\n";
-      if(g_tree) g_tree<<'"'<<(void*)this<< "\" -> \""<<(void*)d_rhs.get()<<"\"\n";
-
-      if(doLog) std::cout<<"Subtraction going left, delivering "<< (mult)<<std::endl;
-      d_lhs->backward(mult);
-      if(doLog) std::cout<<"Subtraction going right, delivering "<< (mult) <<std::endl;
-      d_rhs->backward(mult);
-    }
-
     else if(d_mode == Modes::Mult) {
       if(g_tree) g_tree<<'"'<<(void*)this<< "\" [label=\""<<d_val<<"\\n*\"]\n";
       if(g_tree) g_tree<<'"'<<(void*)this<< "\" -> \""<<(void*)d_lhs.get()<<"\"\n";
@@ -237,7 +227,6 @@ struct TrackedNumberImp
   {
     Parameter,
     Addition,
-    Subtraction,
     Mult,
     Func
   };
@@ -274,8 +263,10 @@ struct TrackedNumber
     if(!impl)
       impl = std::make_shared<TrackedNumberImp<T>>(val);
     else {
-      if(impl->d_mode != TrackedNumberImp<T>::Modes::Parameter)
+      if(impl->d_mode != TrackedNumberImp<T>::Modes::Parameter) {
+        std::cerr<<"Trying to assign a number to something not a number"<<std::endl;
         abort();
+      }
       impl->d_val = val;
     }
     return *this;
@@ -314,14 +305,7 @@ TrackedNumber<T> operator+(const TrackedNumber<T>& lhs, const TrackedNumber<T>& 
 template<typename T>
 TrackedNumber<T> operator-(const TrackedNumber<T>& lhs, const TrackedNumber<T>& rhs)
 {
-  TrackedNumber<T> ret;
-  ret.impl = std::make_shared<TrackedNumberImp<T>>();
-  ret.impl->d_mode = TrackedNumberImp<T>::Modes::Subtraction;
-  ret.impl->d_lhs = lhs.impl;
-  ret.impl->d_rhs = rhs.impl;
-  ret.impl->d_grad = lhs.getVal(); // dimensions // XXXX do we need this? 
-  TrackedNumberImp<T>::setZero(ret.impl->d_grad);
-  return ret;
+  return lhs + TrackedNumber<T>(-1)*rhs;
 }
 
 
