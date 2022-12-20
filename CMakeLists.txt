@@ -27,6 +27,14 @@ target_link_libraries(tensor
   Eigen3::Eigen
   z
 )
+
+add_executable(first-relu first-relu.cc mnistreader.cc)
+target_link_libraries(first-relu
+  Eigen3::Eigen
+  z
+)
+
+
 add_executable(los los.cc)
 target_link_libraries(los
   Eigen3::Eigen
