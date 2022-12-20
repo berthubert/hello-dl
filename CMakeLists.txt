@@ -22,7 +22,7 @@ target_link_libraries(hello-dl
   z
 )
 
-add_executable(tensor tensor.cc)
+add_executable(tensor tensor.cc mnistreader.cc)
 target_link_libraries(tensor
   Eigen3::Eigen
   z

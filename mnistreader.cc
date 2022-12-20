@@ -73,6 +73,15 @@ MNISTReader::MNISTReader(const std::string& images, const std::string& labels)
 
   gzclose(imgfp);
   gzclose(labelsfp);
+
+  Eigen::Matrix<float, 28*28,1> tmp;
+  for(unsigned int n=0 ; n < d_num; ++n) {
+    unsigned int pos = n * d_stride;
+    for(unsigned int i=0; i < d_stride; ++i) {
+      tmp(i) = d_images.at(pos+i);
+    }
+    d_converted[n]=tmp/256.0;
+  }
 }
 
 vector<uint8_t> MNISTReader::getImage(int n) const
@@ -82,15 +91,6 @@ vector<uint8_t> MNISTReader::getImage(int n) const
   return ret;
 }
 
-Eigen::MatrixXf MNISTReader::getImageEigen(int n) const
-{
-  Eigen::MatrixXf ret(d_stride, 1);
-  unsigned int pos = n * d_stride;
-  for(unsigned int i=0; i < d_stride; ++i) {
-    ret(i) = d_images.at(pos+i);
-  }
-  return ret;
-}
   
 
 char MNISTReader::getLabel(int n) const
