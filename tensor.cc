@@ -53,19 +53,15 @@ int main()
     TrackedFloat score;
     TrackedFloat expected;
     TrackedFloat loss;
+
   };
 
   Batcher batcher(threeseven); // badgerbadger
   
 
   vector<int> prevbatch;
-  for(int tries=0; tries < 2;++tries) {
+  for(int tries=0; tries < 200;++tries) {
     auto batch = batcher.getBatch(128);
-    if(tries == 1)
-      batch = prevbatch;
-    else
-      prevbatch = batch;
-    
     if(batch.empty())
       break;
     vector<State> states;
@@ -75,7 +71,6 @@ int main()
       
       const img_t& leImage = mn.getImageEigen(idx);
       s.label = mn.getLabel(idx);
-
       pushImage(leImage, s.img);
       s.flat = s.img.flatViewRow();
       s.output = weights * s.flat + bias;
@@ -88,6 +83,7 @@ int main()
       s.loss = (s.expected - s.score) * (s.expected - s.score);
       states.push_back(s);
     }
+    cout<<"Tying"<<endl;
     TrackedFloat totalLoss=0;
     for(auto& s : states)
       totalLoss = totalLoss + s.loss;
@@ -110,23 +106,21 @@ int main()
     cout<<"Percent correct: "<<100.0*corrects/(corrects+wrongs)<<" threepreds "<<threepreds<<" sevenpreds " <<sevenpreds<<endl;
     totalLoss.backward();
     auto grad = weights.getGrad();
+    double lr=0.1;
     for(int n=0; n < 100; ++n)
-      cout<<weights(0,n).getVal()<<" -= "<< (0.02*grad(0,n)/states.size()) <<"\t";
+      cout<<weights(0,n).getVal()<<" -= "<< (lr*grad(0,n)) <<"\t";
     cout<<endl;
-
-    for(int n=0; n < 28*28; ++n)
-      if(grad(0,n) < 0.0) cout<<"Negative!!: "<<n<< " " <<grad(0,n)<<endl;
     
-    grad *= (0.3 / states.size());
+    grad *= lr;
 
     weights -= grad;
 
     weights.zeroGrad();
     
     auto biasgrad = bias.getGrad();
-    biasgrad *= (0.3/states.size());
+    biasgrad *= lr;
     bias -= biasgrad;
-    cout<<bias(0,0).getVal() << " -= " <<0.002*biasgrad(0,0)/states.size() <<endl;
+    cout<<bias(0,0).getVal() << " -= " << lr*biasgrad(0,0) <<endl;
 
     bias.zeroGrad();
   }
