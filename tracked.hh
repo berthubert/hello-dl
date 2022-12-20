@@ -133,7 +133,7 @@ struct TrackedNumberImp
 
   std::function<T(const T& f)> d_func;
   std::function<T(const T& f)> d_deriv;
-  std::string d_funcname;
+  //  std::string d_funcname;
   
   T getVal() const
   {
@@ -177,10 +177,10 @@ struct TrackedNumberImp
   void backward(T mult) 
   {
     if(d_mode == Modes::Parameter) {
-      if(doLog) std::cout<<"I'm a param called '"<<d_name<<"' with value "<<d_val<<", nothing to backward further"<<std::endl;
+      if(doLog) std::cout<<"I'm a param called '"<<getName()<<"' with value "<<d_val<<", nothing to backward further"<<std::endl;
       d_grad += mult;
       if(doLog) std::cout<<"   receiving a mult of "<< (mult) <<std::endl;
-      if(g_tree) g_tree<<'"'<<(void*)this<< "\" [label=\""<<d_name<<"="<<d_val<<"\\ng="<<d_grad<<"\"]\n";;
+      if(g_tree) g_tree<<'"'<<(void*)this<< "\" [label=\""<<getName()<<"="<<d_val<<"\\ng="<<d_grad<<"\"]\n";;
       return;
     }
     else if(d_mode == Modes::Addition) {
@@ -215,7 +215,7 @@ struct TrackedNumberImp
     }
     else if(d_mode == Modes::Func) {
       if(doLog) std::cout<<"Function... "<<std::endl;
-      if(g_tree) g_tree<<'"'<<(void*)this<< "\" [label=\""<<d_funcname<<"\"]\n";
+      if(g_tree) g_tree<<'"'<<(void*)this<< "\" [label=\""<<"func\"]\n";
       if(g_tree) g_tree<<'"'<<(void*)this<< "\" -> \""<<(void*)d_lhs.get()<<"\"\n";
 
       d_lhs->backward(mult*d_deriv(d_lhs->d_val));
@@ -233,17 +233,18 @@ struct TrackedNumberImp
   
   Modes d_mode;
   std::shared_ptr<TrackedNumberImp> d_lhs, d_rhs;
-  std::string d_name;
+  //  std::string d_name;
+  std::string getName() { return "none"; }
 };
 
 template<typename T>
 struct TrackedNumber
 {
   TrackedNumber(){}
-  TrackedNumber(T val, const std::string& name="")
+  TrackedNumber(T val, [[maybe_unused]] const std::string& name="")
   {
     impl = std::make_shared<TrackedNumberImp<T>>(val);
-    impl->d_name = name;
+    //    impl->d_name = name;
   }
   T getVal() const
   {
@@ -335,9 +336,9 @@ TrackedNumber<T> doFunc(const TrackedNumber<T>& lhs, [[maybe_unused]] const F& f
   ret.impl->d_deriv = F::deriv;
   ret.impl->d_lhs = lhs.impl;
   
-  ret.impl->d_grad = lhs.getVal(); // get dimensions right
+  //  ret.impl->d_grad = lhs.getVal(); // get dimensions right
   //  ret.impl->d_grad.setConstant(1); // no idea
-  ret.impl->d_funcname = F::getName();
+  //  ret.impl->d_funcname = F::getName();
   return ret;
 }
 
