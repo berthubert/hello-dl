@@ -3,6 +3,8 @@
 #include <vector>
 #include <Eigen/Dense>
 #include <unordered_map>
+#include "array.hh"
+
 class MNISTReader
 {
 public:
@@ -20,6 +22,15 @@ public:
       throw std::runtime_error("Could not find image "+std::to_string(n));
   }
 
+  void pushImage(int n, NNArray<float, 28, 28>& dest) const
+  {
+    const auto& src = getImageEigen(n);
+    for(int row=0 ; row < 28; ++row)
+      for(int col=0 ; col < 28; ++col)
+        dest(row, col) = src(row+28*col, 0);
+  }
+
+  
   char getLabel(int n) const;
 private:
   std::vector<uint8_t> d_images;
