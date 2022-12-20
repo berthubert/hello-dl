@@ -218,7 +218,7 @@ struct TrackedNumberImp
       if(g_tree) g_tree<<'"'<<(void*)this<< "\" [label=\""<<d_funcname<<"\"]\n";
       if(g_tree) g_tree<<'"'<<(void*)this<< "\" -> \""<<(void*)d_lhs.get()<<"\"\n";
 
-      d_lhs->backward(d_deriv(d_lhs->d_val)); // chain rule I think XXX
+      d_lhs->backward(mult*d_deriv(d_lhs->d_val));
     }
     else
       abort();
