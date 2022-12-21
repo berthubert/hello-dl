@@ -1,12 +1,21 @@
 # hello-dl
-A from scratch introduction to modern machine learning. While tutorials using
-the industry mainstay PyTorch abound, this tutorial starts with matrices.
+A from scratch introduction to modern machine learning. Many tutorials exist
+already of course, but this one aims to really explain what is going on.
+Other documents start out from the (very impressive) PyTorch environment, or
+they attempt to math it up from first principles. 
 
-The goal is to have minimal software that is still going to wow you by being
-pretty clever. 
+Trying to understand deep learning via PyTorch is like trying to learn
+aerodynamics from flying Airbus A380. 
 
-The software meanwhile may be minimal, but will showcase modern deep
-learning techniques.
+Meanwhile the pure maths approach ("see it is easy, it is just a Jacobian
+matrix") is probably only suited to people who dream in derivatives.
+
+The goal of this tutorial is to develop modern neural networks entirely from
+scratch, but where we still end up with really impressive results.
+
+To do so, this project contains some minimalist tooling.  The software may
+be minimal, but will showcase modern deep learning techniques that should
+wow you into believing that something very special is going on.
 
 This project was inspired by [Georgi Gerganov](https://ggerganov.com/)'s
 AWESOME [C++ implementation of OpenAI's Whisper speech/translation model](https://github.com/ggerganov/whisper.cpp).
@@ -17,18 +26,19 @@ AWESOME [C++ implementation of OpenAI's Whisper speech/translation model](https:
    * Tools must do things you will be personally be impressed by
  * Not skimp over the details, how does it ACTUALLY work
  * Make reading the tool's source code a good learning experience
- * Use language and terms that are compatible with modern day usage
-   * So you can also understand PyTorch tutorials
  * However, also not confuse you with weird historical words
  * Cover all the techniques that form the backbone of modern DL successes
+ * Use language and terms that are compatible with modern day usage
+   * So you can also understand PyTorch tutorials
 
 Non-goals:
 
  * Turn you into a machine learning professional
- * Teach you PyTorch
+ * Teach you PyTorch directly
 
 The idea is that after you are done with the blog posts (yet to be written) and
-the tools that it should all make sense to you. 
+have worked with the tools that it should all make sense to you. And *then*
+you can get to work with professional tooling and get to work.
 
 # Status
 So far this implements a small but pretty nice autograd system.  Initial
