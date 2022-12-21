@@ -11,14 +11,14 @@ constexpr bool doLog{false};
 
 struct ReluFunc
 {
-  static float func(float in)
+  static float func(const float& in)
   {
     if(in < 0)
       return 0;
     else
       return in;
   }
-  static float deriv(float in)
+  static float deriv(const float& in)
   {
     if(in < 0)
       return 0;
@@ -128,12 +128,6 @@ struct TrackedNumberImp
     d_grad = v; // get the dimensions right for matrix
     setZero(d_grad);
   }
-  mutable T d_val;
-  T d_grad;
-
-  std::function<T(const T& f)> d_func;
-  std::function<T(const T& f)> d_deriv;
-  //  std::string d_funcname;
   
   T getVal() const
   {
@@ -230,9 +224,16 @@ struct TrackedNumberImp
     Mult,
     Func
   };
-  
+  std::shared_ptr<TrackedNumberImp> d_lhs, d_rhs;  
+  mutable T d_val; // 4
+  T d_grad; // 4
+  typedef float(*func_t)(const float&);
+  func_t d_func, d_deriv;
+  //  std::string d_funcname;
+
   Modes d_mode;
-  std::shared_ptr<TrackedNumberImp> d_lhs, d_rhs;
+
+
   //  std::string d_name;
   std::string getName() { return "none"; }
 };
