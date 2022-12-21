@@ -65,6 +65,34 @@ TEST_CASE("subtraction test") {
   CHECK(y.getGrad() == -1);
 }
 
+
+TEST_CASE("division test") {
+  TrackedFloat x(12.0);
+  TrackedFloat y(2.0);
+  TrackedFloat res = x/y;
+  CHECK(res.getVal() == 6.0);
+  res.backward();     // x * y^-1 
+  CHECK(x.getGrad() == 0.5); // y^-1 -> 0.5
+  CHECK(y.getGrad() == -3); // -y^-2 * x = -0.25 * 12 = -3
+  res.zeroGrad();
+
+  res = (x+y)/y;            // x/y + 1
+  CHECK(res.getVal() == 7.0);
+  res.backward();
+  CHECK(x.getGrad() == 0.5);
+  CHECK(y.getGrad() == -3);
+
+  res.zeroGrad();
+  res = (x +y*y)/x; // 1 + (y*y)*x^-1
+  CHECK(res.getVal() == doctest::Approx(16.0/12.0));;
+  res.backward();
+  // -x^-2 * (y*y) = y*y/(12*12) 
+  CHECK(x.getGrad() == doctest::Approx(-4.0/(12*12)));
+  // 2*y/x
+  CHECK(y.getGrad() == doctest::Approx(2*2.0/12.0));
+}
+
+
 TEST_CASE("reuse test") {
   TrackedFloat x(-1.0);
   TrackedFloat y(2.0);

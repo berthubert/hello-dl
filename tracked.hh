@@ -137,6 +137,8 @@ struct TrackedNumberImp
       return d_val=(d_lhs->getVal() + d_rhs->getVal());
     else if(d_mode == Modes::Mult) 
       return d_val=(d_lhs->getVal() * d_rhs->getVal());
+    else if(d_mode == Modes::Div)
+      return d_val=(d_lhs->getVal() / d_rhs->getVal());
     else if(d_mode == Modes::Func) {
       d_val = d_func(d_lhs->getVal());
       return d_val;     
@@ -207,6 +209,26 @@ struct TrackedNumberImp
       if(doLog) std::cout<<"Going right, delivering " << (tposed2 * mult ) <<std::endl;
       d_rhs->backward(tposed2 * mult);
     }
+    else if(d_mode == Modes::Div) {
+      if(g_tree) g_tree<<'"'<<(void*)this<< "\" [label=\""<<d_val<<"\\n/\"]\n";
+      if(g_tree) g_tree<<'"'<<(void*)this<< "\" -> \""<<(void*)d_lhs.get()<<"\"\n";
+      if(g_tree) g_tree<<'"'<<(void*)this<< "\" -> \""<<(void*)d_rhs.get()<<"\"\n";
+
+      if(doLog) std::cout<<"Div lhs grad: \n"<<d_lhs->d_grad<<std::endl;
+      T tposed = transpose(d_rhs->d_val);
+
+      if(doLog) std::cout<<"Our grad:\n";
+      if(doLog) std::cout<<d_grad<<std::endl;
+
+      if(doLog) std::cout<<"Div rhs grad: \n"<<d_rhs->d_grad<<std::endl;
+      
+      T tposed2 = transpose(d_lhs->d_val);
+      
+      if(doLog) std::cout<<"Going to left, delivering "<< ( mult/tposed )<<std::endl;
+      d_lhs->backward(mult/tposed);
+      if(doLog) std::cout<<"Going right, delivering " << (-mult*tposed2/(tposed*tposed) ) <<std::endl;
+      d_rhs->backward(-mult*tposed2/(tposed*tposed));
+    }
     else if(d_mode == Modes::Func) {
       if(doLog) std::cout<<"Function... "<<std::endl;
       if(g_tree) g_tree<<'"'<<(void*)this<< "\" [label=\""<<"func\"]\n";
@@ -222,6 +244,7 @@ struct TrackedNumberImp
     Parameter,
     Addition,
     Mult,
+    Div,
     Func
   };
   std::shared_ptr<TrackedNumberImp> d_lhs, d_rhs;  
@@ -325,6 +348,21 @@ TrackedNumber<T> operator*(const TrackedNumber<T>& lhs, const TrackedNumber<T>& 
   // ret.impl->d_grad.setConstant(1);  // XXX maybe should come back
   return ret;
 }
+
+
+template<typename T>
+TrackedNumber<T> operator/(const TrackedNumber<T>& lhs, const TrackedNumber<T>& rhs)
+{
+  TrackedNumber<T> ret;
+  ret.impl = std::make_shared<TrackedNumberImp<T>>();
+  ret.impl->d_mode = TrackedNumberImp<T>::Modes::Div;
+  assert(lhs.impl != 0);
+  ret.impl->d_lhs = lhs.impl;
+  assert(rhs.impl != 0);
+  ret.impl->d_rhs = rhs.impl;
+  return ret;
+}
+
 
 template<typename T, typename F>
 TrackedNumber<T> doFunc(const TrackedNumber<T>& lhs, [[maybe_unused]] const F& f)
