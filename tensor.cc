@@ -41,7 +41,7 @@ void scoreModel(W& weights, B& bias, const MNISTReader& mntest)
   int threes=0, sevens=0, threepreds=0, sevenpreds=0;
   M s;
   s.init(weights, bias);
-  
+  auto topo = s.score.getTopo();
   for(unsigned int i = 0 ; i < mntest.num() - 1; ++i){
     int label = mntest.getLabel(i);
     if(label==3)
@@ -53,7 +53,7 @@ void scoreModel(W& weights, B& bias, const MNISTReader& mntest)
     mntest.pushImage(i, s.img);
     
     int verdict = s.score.getVal() < 0.5 ? 3 : 7;
-    //    cout<<"label "<<(int)label<<" result(0) "<<result(0)<<" verdict " <<verdict<<" pic "<<pic.mean()<<endl;
+    //    cout<<"label "<<(int)label<<" score "<<s.score.getVal()  <<" verdict " <<verdict<<endl;
     //cout<<"l1bias "<<l.l1.bias<<" l2bias "<<l.l2.bias<<endl;
     //    cout<<l.l1.weights.cwiseAbs().mean()<<endl;
     if(verdict == label) {
@@ -67,6 +67,7 @@ void scoreModel(W& weights, B& bias, const MNISTReader& mntest)
       threepreds++;
     else if(verdict == 7)
       sevenpreds++;
+    s.score.zeroGrad(topo); 
   }
   double perc = corrects*100.0/(corrects+wrongs);
   cout<<perc<<"% correct, threes "<<threes<<" sevens "<<sevens<<" threepreds "<<threepreds<<" sevenpreds "<<sevenpreds<<"\n";
@@ -111,9 +112,9 @@ int main()
 
   cout<<"done: "<< TrackedNumberImp<float>::getCount() <<" nodes"<<endl;
   Batcher batcher(threeseven); // badgerbadger
-  
+  auto topo = totalLoss.getTopo();
   for(int tries=0; tries < 100;++tries) {
-    if(!(tries %32))
+    if(!(tries % 32))
       scoreModel<State>(weights, bias, mntest);
     
     auto batch = batcher.getBatch(states.size());
@@ -149,7 +150,7 @@ int main()
         threepreds++;
     }
     cout<<"Percent batch correct: "<<100.0*corrects/(corrects+wrongs)<<" threepreds "<<threepreds<<" sevenpreds " <<sevenpreds<<endl;
-    totalLoss.backward();
+    totalLoss.backward(topo);
     auto grad = weights.getGrad();
     double lr=0.07;
     /*
@@ -162,15 +163,15 @@ int main()
 
     weights -= grad;
 
-    weights.zeroGrad();
+    //weights.zeroGrad();
     
     auto biasgrad = bias.getGrad();
     biasgrad *= lr;
     bias -= biasgrad;
     //    cout<<bias(0,0).getVal() << " -= " << lr*biasgrad(0,0) <<endl;
 
-    bias.zeroGrad();
-    totalLoss.zeroGrad();
+    //    bias.zeroGrad();
+    totalLoss.zeroGrad(topo);
   }
   scoreModel<State>(weights, bias, mntest);
 }
