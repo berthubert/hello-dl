@@ -82,13 +82,6 @@ struct NNArray
     return *this;
   }
 
-  auto& operator+(const NNArray<T, ROWS, COLS>& rhs)
-  {
-    for(size_t pos = 0 ; pos < d_store.size(); ++pos)
-      d_store[pos] = d_store[pos]  + rhs.d_store[pos];
-    
-    return *this;
-  }
   
   void randomize()
   {
@@ -104,7 +97,7 @@ struct NNArray
   void zero()
   {
     for(auto& item : d_store) {
-      item = (float)0;
+      item = (float)0.0;
     }
   }
 
@@ -116,6 +109,39 @@ struct NNArray
     ret.d_store.clear(); 
     for(const auto& v : d_store)
       ret.d_store.push_back(doFunc(v, f));
+    return ret;
+  }
+
+  // does it in ALL fields, not by row
+  auto norm() 
+  {
+    NNArray<T, ROWS, COLS> ret;
+    TrackedNumber<T> sum=0;
+
+    for(const auto& v : d_store)
+      sum = sum + v;
+    for(unsigned int pos = 0 ; pos < ret.d_store.size() ; ++pos)
+      ret.d_store[pos] = d_store[pos]/sum;
+    return ret;
+  }
+
+  
+  // does it in ALL fields, not by row
+  auto logSoftMax() 
+  {
+    NNArray<T, ROWS, COLS> ret;
+    TrackedNumber<T> sum=0;
+
+    // has the problem that it can exceed the max exponentiable value
+    //c = x.max()
+    //logsumexp = np.log(np.exp(x - c).sum())
+    //return x - c - logsumexp
+
+    for(const auto& v : d_store)
+      sum = sum + doFunc(v, ExpFunc());
+    TrackedNumber<T> logsum = doFunc(sum, LogFunc());
+    for(unsigned int pos = 0 ; pos < ret.d_store.size() ; ++pos)
+      ret.d_store[pos] = d_store[pos] - logsum;
     return ret;
   }
   
@@ -141,6 +167,26 @@ struct NNArray
     return ret;
   }
 
+  TrackedNumber<T> mean()
+  {
+    return sum() / TrackedNumber<T>((float)d_store.size());
+  }
+  // goes down a column to find the row with the highest value
+  unsigned int maxValueIndexOfColumn(int col)
+  {
+    float maxval=(*this)(0, col).getVal();
+    int maxrow=0;
+    for(unsigned int r=0; r < ROWS; ++r) {
+      //      std::cout<<r<<std::endl;
+      float val = (*this)(r, col).getVal();
+      if(val > maxval) {
+        maxval = val;
+        maxrow=r;
+      }
+    }
+    return maxrow;
+  }
+  
   // *this is ROWS*COLS
   // a is COLS*N
   
@@ -174,4 +220,39 @@ struct NNArray
   
 };
 
+template<typename T, unsigned int ROWS, unsigned int COLS>
+NNArray<T, ROWS, COLS> operator-(const NNArray<T, ROWS, COLS>& lhs, const NNArray<T, ROWS, COLS>& rhs)
+{
+  NNArray<T, ROWS, COLS> ret;
+  for(size_t pos = 0 ; pos < lhs.d_store.size(); ++pos)
+    ret.d_store[pos] = lhs.d_store[pos]  - rhs.d_store[pos];
+  
+  return ret;
+}
+
+template<typename T, unsigned int ROWS, unsigned int COLS>
+NNArray<T, ROWS, COLS> operator+(const NNArray<T, ROWS, COLS>& lhs, const NNArray<T, ROWS, COLS>& rhs)
+{
+  NNArray<T, ROWS, COLS> ret;
+  for(size_t pos = 0 ; pos < lhs.d_store.size(); ++pos)
+    ret.d_store[pos] = lhs.d_store[pos] + rhs.d_store[pos];
+  
+  return ret;
+}
+
+template<typename T, unsigned int ROWS, unsigned int COLS>
+std::ostream& operator<<(std::ostream& os, const NNArray<T, ROWS, COLS>& ns)
+{
+  for(size_t r = 0; r < ROWS; ++r) {
+    for(size_t c = 0; c < COLS; ++c) {
+      if(c)
+        os<<' ';
+      os<< ns(r,c).getVal();
+    }
+    os<<'\n';
+  }
+      
+
+  return os;
+}
 

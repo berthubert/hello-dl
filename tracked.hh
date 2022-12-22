@@ -4,10 +4,24 @@
 #include <string>
 #include <iostream>
 #include <fstream>
-
+#include <set>
+#include <unordered_set>
 extern std::ofstream g_tree;
 
 constexpr bool doLog{false};
+
+struct SquareFunc
+{
+  static float func(const float& v)
+  {
+    return v*v;
+  }
+  static float deriv(const float& v)
+  {
+    return 2*v;
+  }
+};
+
 
 struct ReluFunc
 {
@@ -25,16 +39,6 @@ struct ReluFunc
     else
       return 1;
   }
-#if 0
-  static Eigen::MatrixXf func(const Eigen::MatrixXf& in)
-  {
-    return in.unaryExpr([](const float& v) { return func(v);});
-  }
-  static Eigen::MatrixXf deriv(const Eigen::MatrixXf& in)
-  {
-    return in.unaryExpr([](const float& v) {return deriv(v);});
-  }
-#endif
   static std::string getName() { return "relu"; }
 };
 
@@ -50,41 +54,48 @@ struct SigmoidFunc
     return sigma*(1-sigma);
   }
 
-  #if 0
-  static Eigen::MatrixXf func(const Eigen::MatrixXf& in)
-  {
-    return in.unaryExpr([](const float& v) -> float {
-      return 1.0/ (1.0 +exp(-v));
-    });
-  }
-  static Eigen::MatrixXf deriv(const Eigen::MatrixXf& in)
-  {
-    return in.unaryExpr([](const float& v) -> float {
-      float sigma = 1.0/ (1.0 +exp(-v));
-      return sigma*(1-sigma);
-    });
-  }
-  #endif
   static std::string getName() { return "sigmoid"; }
 };
 
-
-struct SinFunc
+struct ExpFunc
 {
-  static Eigen::MatrixXf func(const Eigen::MatrixXf& in)
+  static float func(const float& in)
   {
-    return in.unaryExpr([](const float& v) -> float {
-      return sin(v);
-    });
+    if(in<80)
+      return exp(in);
+    else
+      return exp(80);
   }
-  static Eigen::MatrixXf deriv(const Eigen::MatrixXf& in)
+  static float deriv(const float& in)
   {
-    return in.unaryExpr([](const float& v) -> float {
-      return cos(v);
-    });
+    if(in<87)
+      return exp(in); // easy
+    else
+      return 0;
   }
-  static std::string getName() { return "sin"; }
+
+  static std::string getName() { return "exp"; }
 };
+
+struct LogFunc
+{
+  static float func(const float& in)
+  {
+    if(in == 0.0)
+      return -80;
+    return log(in);
+  }
+  static float deriv(const float& in)
+  {
+    if(in==0.0)
+      return 80;
+    return 1/in;
+  }
+
+  static std::string getName() { return "log"; }
+};
+
+
 
 struct IDFunc
 {
@@ -96,18 +107,10 @@ struct IDFunc
   {
     return 1;
   }
-
-  static Eigen::MatrixXf func(const Eigen::MatrixXf& in)
-  {
-    return in;
-  }
-  static Eigen::MatrixXf deriv(const Eigen::MatrixXf& in)
-  {
-    return in.unaryExpr([](const float& v) { return deriv(v);});
-  }
   static std::string getName() { return "ID"; }
 };
 
+static uint64_t s_count;
 
 template<typename T>
 struct TrackedNumberImp
@@ -121,39 +124,55 @@ struct TrackedNumberImp
   {
     v.setZero();
   }
-  
-  TrackedNumberImp(){}
+
+  TrackedNumberImp(const TrackedNumberImp&) = delete;
+  TrackedNumberImp& operator=(const TrackedNumberImp&) = delete;
+  TrackedNumberImp()
+  {
+    s_count++;
+  }
   explicit TrackedNumberImp(T v) : d_val(v), d_mode(Modes::Parameter)
   {
     d_grad = v; // get the dimensions right for matrix
     setZero(d_grad);
+    s_count++;
+  }
+
+  ~TrackedNumberImp()
+  {
+    --s_count;
+  }
+
+  static uint64_t getCount()
+  {
+    return s_count;
   }
   
   T getVal() const
   {
-    if(d_mode == Modes::Parameter)
+    if(d_mode == Modes::Parameter || d_haveval)
       return d_val;
-    else if(d_mode == Modes::Addition) 
-      return d_val=(d_lhs->getVal() + d_rhs->getVal());
-    else if(d_mode == Modes::Mult) 
-      return d_val=(d_lhs->getVal() * d_rhs->getVal());
+    else if(d_mode == Modes::Addition) {
+      d_val=(d_lhs->getVal() + d_rhs->getVal());
+    }
+    else if(d_mode == Modes::Mult) {
+      d_val=(d_lhs->getVal() * d_rhs->getVal());
+    }
     else if(d_mode == Modes::Div)
-      return d_val=(d_lhs->getVal() / d_rhs->getVal());
+      d_val=(d_lhs->getVal() / d_rhs->getVal());
     else if(d_mode == Modes::Func) {
       d_val = d_func(d_lhs->getVal());
-      return d_val;     
     }
     else
       abort();
+    d_haveval=true;
+    return d_val;
   }
 
   void zeroGrad()
   {
     setZero(d_grad);
-    if(d_lhs)
-      d_lhs->zeroGrad();
-    if(d_rhs)
-      d_rhs->zeroGrad();
+    d_haveval=false;
   }
   
   T getGrad() 
@@ -166,16 +185,28 @@ struct TrackedNumberImp
     return v;
   }
 
-  Eigen::MatrixXf transpose(const Eigen::MatrixXf& v)
+  void build_topo(std::unordered_set<TrackedNumberImp<T>*>& visited, std::vector<TrackedNumberImp<T>*>& topo)
   {
-    return v.transpose();
+    if(visited.count(this))
+      return;
+    visited.insert(this);
+    
+    if(d_lhs) {
+      d_lhs->build_topo(visited, topo);
+    }
+    if(d_rhs) {
+      d_rhs->build_topo(visited, topo);
+    }
+    topo.push_back(this);
+
   }
-  void backward(T mult) 
+
+  void doGrad()
   {
     if(d_mode == Modes::Parameter) {
       if(doLog) std::cout<<"I'm a param called '"<<getName()<<"' with value "<<d_val<<", nothing to backward further"<<std::endl;
-      d_grad += mult;
-      if(doLog) std::cout<<"   receiving a mult of "<< (mult) <<std::endl;
+
+      if(doLog) std::cout<<"   receiving a d_grad of "<< (d_grad) <<std::endl;
       if(g_tree) g_tree<<'"'<<(void*)this<< "\" [label=\""<<getName()<<"="<<d_val<<"\\ng="<<d_grad<<"\"]\n";;
       return;
     }
@@ -184,10 +215,12 @@ struct TrackedNumberImp
       if(g_tree) g_tree<<'"'<<(void*)this<< "\" -> \""<<(void*)d_lhs.get()<<"\"\n";
       if(g_tree) g_tree<<'"'<<(void*)this<< "\" -> \""<<(void*)d_rhs.get()<<"\"\n";
 
-      if(doLog) std::cout<<"Addition going left, delivering "<< (mult)<<std::endl;
-      d_lhs->backward(mult);
-      if(doLog) std::cout<<"Addition going right, delivering "<< (mult) <<std::endl;
-      d_rhs->backward(mult);
+      if(doLog) std::cout<<"Addition going left, delivering "<< (d_grad)<<std::endl;
+
+      d_lhs->d_grad += d_grad;
+      if(doLog) std::cout<<"Addition going right, delivering "<< (d_grad) <<std::endl;
+
+      d_rhs->d_grad+=d_grad;
     }
     else if(d_mode == Modes::Mult) {
       if(g_tree) g_tree<<'"'<<(void*)this<< "\" [label=\""<<d_val<<"\\n*\"]\n";
@@ -204,10 +237,12 @@ struct TrackedNumberImp
       
       T tposed2 = transpose(d_lhs->d_val);
       
-      if(doLog) std::cout<<"Going to left, delivering "<< (mult * tposed )<<std::endl;
-      d_lhs->backward(mult * tposed);
-      if(doLog) std::cout<<"Going right, delivering " << (tposed2 * mult ) <<std::endl;
-      d_rhs->backward(tposed2 * mult);
+      if(doLog) std::cout<<"Going to left, delivering "<< (d_grad * tposed )<<std::endl;
+
+      d_lhs->d_grad+=(d_grad * tposed);
+      if(doLog) std::cout<<"Going right, delivering " << (tposed2 * d_grad ) <<std::endl;
+
+      d_rhs->d_grad+=(tposed2 * d_grad);
     }
     else if(d_mode == Modes::Div) {
       if(g_tree) g_tree<<'"'<<(void*)this<< "\" [label=\""<<d_val<<"\\n/\"]\n";
@@ -224,38 +259,44 @@ struct TrackedNumberImp
       
       T tposed2 = transpose(d_lhs->d_val);
       
-      if(doLog) std::cout<<"Going to left, delivering "<< ( mult/tposed )<<std::endl;
-      d_lhs->backward(mult/tposed);
-      if(doLog) std::cout<<"Going right, delivering " << (-mult*tposed2/(tposed*tposed) ) <<std::endl;
-      d_rhs->backward(-mult*tposed2/(tposed*tposed));
+      if(doLog) std::cout<<"Going to left, delivering "<< ( d_grad/tposed )<<std::endl;
+
+      d_lhs->d_grad+=(d_grad/tposed);
+      if(doLog) std::cout<<"Going right, delivering " << (-d_grad*tposed2/(tposed*tposed) ) <<std::endl;
+
+      d_rhs->d_grad+=(-d_grad*tposed2/(tposed*tposed));
     }
     else if(d_mode == Modes::Func) {
       if(doLog) std::cout<<"Function... "<<std::endl;
       if(g_tree) g_tree<<'"'<<(void*)this<< "\" [label=\""<<"func\"]\n";
       if(g_tree) g_tree<<'"'<<(void*)this<< "\" -> \""<<(void*)d_lhs.get()<<"\"\n";
 
-      d_lhs->backward(mult*d_deriv(d_lhs->d_val));
+      d_lhs->d_grad+=(d_grad*d_deriv(d_lhs->d_val));
     }
     else
       abort();
   }
+  
+  // inspiration: https://github.com/flashlight/flashlight/blob/main/flashlight/fl/autograd/Variable.cpp
+  // more inspiration: https://github.com/karpathy/micrograd/blob/master/micrograd/engine.py
   enum class Modes
   {
-    Parameter,
-    Addition,
-    Mult,
-    Div,
-    Func
+    Unassigned = 0,
+    Parameter=1,
+    Addition=2,
+    Mult=3,
+    Div=4,
+    Func=5
   };
   std::shared_ptr<TrackedNumberImp> d_lhs, d_rhs;  
   mutable T d_val; // 4
-  T d_grad; // 4
+  T d_grad{0}; // 4
   typedef float(*func_t)(const float&);
   func_t d_func, d_deriv;
   //  std::string d_funcname;
 
-  Modes d_mode;
-
+  Modes d_mode{Modes::Unassigned};
+  mutable bool d_haveval{false};
 
   //  std::string d_name;
   std::string getName() { return "none"; }
@@ -281,15 +322,25 @@ struct TrackedNumber
 
   void zeroGrad()
   {
-    impl->zeroGrad();
+    auto topo=getTopo();
+    zeroGrad(topo);
   }
+
+  void zeroGrad(std::vector<TrackedNumberImp<T>* > topo)
+  {
+    for(auto iter = topo.rbegin(); iter != topo.rend(); ++iter) {
+      (*iter)->zeroGrad();
+    }
+  }
+
+  
   TrackedNumber& operator=(T val)
   {
     if(!impl)
       impl = std::make_shared<TrackedNumberImp<T>>(val);
     else {
       if(impl->d_mode != TrackedNumberImp<T>::Modes::Parameter) {
-        std::cerr<<"Trying to assign a number to something not a number"<<std::endl;
+        std::cerr<<"Trying to assign a number to something not a number, it is a "<<(int)impl->d_mode<<std::endl;
         abort();
       }
       impl->d_val = val;
@@ -305,12 +356,32 @@ struct TrackedNumber
   {
     mul.setConstant(1);
   }
-  void backward()
+
+  std::vector<TrackedNumberImp<T>* > getTopo()
   {
-    T mul;
-    setOne(mul);
-    impl->backward(mul);
+    std::vector<TrackedNumberImp<T>* > topo;
+    std::unordered_set<TrackedNumberImp<T>* > visited;
+    impl->build_topo(visited, topo);
+    return topo;
   }
+  
+  std::vector<TrackedNumberImp<T>* > backward()
+  {
+    //    std::cout << "Starting topo" << std::endl;
+    auto topo=getTopo();
+    backward(topo);
+    return topo;
+  }
+
+  void backward(std::vector<TrackedNumberImp<T>* >& topo)
+  {
+    impl->d_grad = 1.0;
+    //    std::cout<<"Have "<<topo.size()<<" entries to visit\n";
+    for(auto iter = topo.rbegin(); iter != topo.rend(); ++iter) {
+      (*iter)->doGrad();
+    }
+  }
+  
   std::shared_ptr<TrackedNumberImp<T>> impl;
 };
 
@@ -330,7 +401,7 @@ TrackedNumber<T> operator+(const TrackedNumber<T>& lhs, const TrackedNumber<T>& 
 template<typename T>
 TrackedNumber<T> operator-(const TrackedNumber<T>& lhs, const TrackedNumber<T>& rhs)
 {
-  return lhs + TrackedNumber<T>(-1)*rhs;
+  return lhs + (TrackedNumber<T>(-1)*rhs);
 }
 
 
@@ -375,9 +446,6 @@ TrackedNumber<T> doFunc(const TrackedNumber<T>& lhs, [[maybe_unused]] const F& f
   ret.impl->d_deriv = F::deriv;
   ret.impl->d_lhs = lhs.impl;
   
-  //  ret.impl->d_grad = lhs.getVal(); // get dimensions right
-  //  ret.impl->d_grad.setConstant(1); // no idea
-  //  ret.impl->d_funcname = F::getName();
   return ret;
 }
 

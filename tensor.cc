@@ -109,7 +109,7 @@ int main()
   for(auto& s : states)
     totalLoss = totalLoss + s.loss;
 
-  cout<<"done"<<endl;
+  cout<<"done: "<< TrackedNumberImp<float>::getCount() <<" nodes"<<endl;
   Batcher batcher(threeseven); // badgerbadger
   
   for(int tries=0; tries < 100;++tries) {
@@ -170,6 +170,7 @@ int main()
     //    cout<<bias(0,0).getVal() << " -= " << lr*biasgrad(0,0) <<endl;
 
     bias.zeroGrad();
+    totalLoss.zeroGrad();
   }
   scoreModel<State>(weights, bias, mntest);
 }

@@ -34,16 +34,24 @@ target_link_libraries(first-relu
   z
 )
 
+add_executable(first-convo first-convo.cc mnistreader.cc)
+target_link_libraries(first-convo
+  Eigen3::Eigen
+  z
+)
+
 
 add_executable(los los.cc)
 target_link_libraries(los
   Eigen3::Eigen
+  z
 )
 
 add_executable(testrunner testrunner.cc arraytests.cc)
 
 target_link_libraries(testrunner
   Eigen3::Eigen
+  z
 )
 
 enable_testing()

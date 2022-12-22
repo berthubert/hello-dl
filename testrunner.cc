@@ -16,11 +16,11 @@ TEST_CASE("basic test") {
 TEST_CASE("quadratic test") {
   TrackedFloat x(2.0);
   TrackedFloat y(3.0);
-  TrackedFloat res = x + y * y;
+  TrackedFloat res = x + y * y; 
   CHECK(res.getVal() == 11.0);
   res.backward();
-  CHECK(x.getGrad() == 1.0);
-  CHECK(y.getGrad() == 6.0);
+  CHECK(x.getGrad() == 1.0); 
+  CHECK(y.getGrad() == 6.0); // 2 * y 
 }
 
 TEST_CASE("quadratic test negative") {
@@ -99,7 +99,23 @@ TEST_CASE("reuse test") {
   TrackedFloat res = x+y;
   CHECK(res.getVal() == 1.0);
   y=3.0;
+  res.zeroGrad(); // to redo the calculation
   CHECK(res.getVal() == 2.0);
+}
+
+TEST_CASE("temporaries") {
+  TrackedFloat x(3), y(1);
+  TrackedFloat res = doFunc((x - y), SquareFunc());
+  CHECK(res.getVal() == 4);
+  res = doFunc((x + y), SquareFunc());
+  CHECK(res.getVal() == 16);
+}
+
+TEST_CASE("self") {
+  TrackedFloat x(3), y(2);
+  x = x/y;
+  CHECK(x.getVal() == doctest::Approx(3.0/2.0));
+  x.backward();
 }
 
 TEST_CASE("reuse test grad") {
