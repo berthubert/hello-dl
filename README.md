@@ -45,6 +45,7 @@ you can get to work with professional tooling and get to work.
 So far this implements a small but pretty nice autograd system. In
 `first-convo.cc` you can find a ~1100 line total computer program that
 learns to recognize handwritten digits in 10 minutes (90% accuracy so far).
+I'm aware it is probably overfitting the data right now.
 
 ```bash
 git clone https://github.com/berthubert/hello-dl.git
