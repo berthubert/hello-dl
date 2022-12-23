@@ -244,7 +244,6 @@ int main()
       if(!(tries %32))
         scoreModel<CNNModel, CNNModel::State>(s, mntest);
       
-      
       auto batch = batcher.getBatch(models.size());
       if(batch.size() != models.size())
         break;
@@ -252,13 +251,11 @@ int main()
         CNNModel& m = models.at(i);
 
         auto idx = batch.at(i);
-        
         mn.pushImage(idx, m.img);
-
         m.label = mn.getLabel(idx);
         
         m.expected.zero();
-        m.expected(0,m.label) = 1;
+        m.expected(0,m.label) = 1; // "one hot vector"
       }
     
       cout<<"Average loss: ";
@@ -269,12 +266,14 @@ int main()
       for(auto& m : models) {
         int predicted = m.scores.maxValueIndexOfColumn(0);        
         if(corrects + wrongs == 0) {
-          cout<<"Predicted: "<<predicted<<", actual: "<<m.label<<endl;
-          cout<<m.scores<<endl;
-          cout<<"Loss: "<<m.loss.getVal()<<endl;
+          cout<<"Predicted: "<<predicted<<", actual: "<<m.label<<": ";
+          if(predicted == m.label)
+            cout<<"We got it right!"<<endl;
+          else
+            cout<<"More learning to do.."<<endl;
+          cout<<"Loss: "<<m.loss.getVal()<<", "<<m.scores.flatViewCol()<<endl;
           printImg(m.img);
         }
-        
 
         if(predicted == m.label)
           corrects++;
@@ -282,7 +281,7 @@ int main()
       }
       cout<<"Percent batch correct: "<<100.0*corrects/(corrects+wrongs)<<"%"<<endl;
       totalLoss.backward(topo);
-      cout<<"Done backwarding"<<endl;
+      //      cout<<"Done backwarding"<<endl;
       double lr=0.01; // mnist.cpp has 0.01, plus "momentum" of 0.5, which we don't have
       
       auto doLearn=[&lr](auto& v){
@@ -306,8 +305,7 @@ int main()
       for(auto& c : s.c2b)
         doLearn(c);
 
-      cout<<s.c1w[0]<<endl;
-      cout<<"Resetting grads"<<endl;
+      //      cout<<"Resetting grads"<<endl;
       totalLoss.zeroGrad(topo);
     }
   }
