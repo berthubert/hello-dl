@@ -61,7 +61,6 @@ MNISTReader::MNISTReader(const std::string& images, const std::string& labels)
 
   if(i3h.num != i1h.num)
     throw runtime_error("Mismatch between number of labels and number of images");
-
   
   d_images.resize(i3h.num*i3h.cols*i3h.rows);
   if(gzfread((char*)&d_images[0], i3h.cols*i3h.rows, i3h.num, imgfp) != i3h.num)
@@ -74,13 +73,13 @@ MNISTReader::MNISTReader(const std::string& images, const std::string& labels)
   gzclose(imgfp);
   gzclose(labelsfp);
 
-  Eigen::Matrix<float, 28*28,1> tmp;
+  vector<float> tmp(28*28);
   for(unsigned int n=0 ; n < d_num; ++n) {
     unsigned int pos = n * d_stride;
     for(unsigned int i=0; i < d_stride; ++i) {
-      tmp(i) = d_images.at(pos+i);
+      tmp.at(i) = d_images.at(pos+i)/256.0;
     }
-    d_converted[n]=tmp/256.0;
+    d_converted[n]=tmp;
   }
 }
 
@@ -90,8 +89,6 @@ vector<uint8_t> MNISTReader::getImage(int n) const
   vector<uint8_t> ret(&d_images.at(pos), &d_images.at(pos + d_rows*d_cols));
   return ret;
 }
-
-  
 
 char MNISTReader::getLabel(int n) const
 {

@@ -2,14 +2,12 @@
 #include <vector>
 #include <fstream>
 #include <memory>
-#include <Eigen/Dense>
 #include <optional>
 #include "array.hh"
 #include "tracked.hh"
 #include "mnistreader.hh"
 #include "misc.hh"
 
-using namespace Eigen;
 using namespace std;
 
 ofstream g_tree; //("tree.part");

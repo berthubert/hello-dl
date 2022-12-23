@@ -2,14 +2,12 @@
 #include <vector>
 #include <fstream>
 #include <memory>
-#include <Eigen/Dense>
 #include <optional>
 #include "array.hh"
 #include "tracked.hh"
 #include "mnistreader.hh"
 #include "misc.hh"
 
-using namespace Eigen;
 using namespace std;
 
 ofstream g_tree; //("tree.part");
@@ -17,8 +15,8 @@ ofstream g_tree; //("tree.part");
 template<typename T>
 void printImg(const T& img)
 {
-  for(int y=0; y < img.getRows(); ++y) {
-    for(int x=0; x < img.getCols(); ++x) {
+  for(unsigned int y=0; y < img.getRows(); ++y) {
+    for(unsigned int x=0; x < img.getCols(); ++x) {
       float val = img(y,x).getVal();
       if(val > 0.5)
         cout<<'X';
@@ -33,7 +31,6 @@ void printImg(const T& img)
   }
   cout<<"\n";
 }
-
 
 /*
 Gratefully copied from 'mnist.cpp' in the PyTorch example repository
@@ -59,9 +56,7 @@ This model takes MNIST 28*28 input and:
   * log_softmax on the 10 values
   * the 10 outputs are probabilities per digit
   * highest probability is chosen
-
  */
-
 
 struct CNNModel {
   NNArray<float, 28, 28> img;
@@ -79,14 +74,14 @@ struct CNNModel {
     // max2d
     std::array<NNArray<float, 5, 5>,20> c2w; // convo
     std::array<NNArray<float, 1, 1>,20> c2b; // convo
-    // randomly zero half of the 20
+    // randomly zero half of the 20 XXX MISSING
     // max2d
     //            out  in
     NNArray<float, 50, 320> fc1w; // will become 320
     NNArray<float, 50, 1> fc1b;
     // relu
     // flatten
-    // zero half of parameters
+    // zero half of parameters  XXX MISSING
     NNArray<float, 10, 50> fc2w;
     NNArray<float, 10, 1> fc2b;
     // log_softmax
@@ -102,7 +97,6 @@ struct CNNModel {
         c.randomize(sqrt(1/25.0));
       for(auto &c : c2b)
         c.randomize(sqrt(1/(10*25.0)));
-
       
       fc1w.randomize(sqrt(1/320.0));
       fc1b.randomize(sqrt(1/320.0));
@@ -130,7 +124,6 @@ struct CNNModel {
     ctr=0;
     for(auto& p : step2)
       p = step1[ctr++].Max2d<2>().applyFunc(ReluFunc());
-
 
     // The 20 output layers of the next convo2d have 20 filters
     // these filters need to be applied to all 10 input layers
@@ -199,7 +192,6 @@ void scoreModel(S& s, const MNISTReader& mntest)
   cout<<perc<<"% correct\n";
 }
 
-
 int main()
 {
   cout<<"Start!"<<endl;
@@ -211,7 +203,6 @@ int main()
 
   CNNModel::State s;
   s.randomize();
-
 
   cout<<"Configuring network";
   cout.flush();
@@ -305,7 +296,6 @@ int main()
       for(auto& c : s.c2b)
         doLearn(c);
 
-      //      cout<<"Resetting grads"<<endl;
       totalLoss.zeroGrad(topo);
     }
   }

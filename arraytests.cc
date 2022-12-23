@@ -86,11 +86,10 @@ TEST_CASE("array sum test") {
 
   auto mres = in*w;
   auto s=mres.sum();
-  cout<<s.getVal()<<endl;
+  //  cout<<s.getVal()<<endl;
   s.backward();
 
-  cout<<in(0,0).getGrad()<<endl;
-  
+  //  cout<<in(0,0).getGrad()<<endl;
 }
 
 TEST_CASE("array mean, min, max test") {

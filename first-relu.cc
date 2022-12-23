@@ -2,7 +2,6 @@
 #include <vector>
 #include <fstream>
 #include <memory>
-#include <Eigen/Dense>
 #include <optional>
 #include "array.hh"
 #include "tracked.hh"
@@ -10,13 +9,9 @@
 #include "misc.hh"
 #include <fenv.h>
 
-using namespace Eigen;
 using namespace std;
 
 ofstream g_tree;//("tree.part");
-
-// from: https://towardsdatascience.com/handwritten-digit-mnist-pytorch-977b5338e627
-
 
 struct ReluModel {
   NNArray<float, 28, 28> img;

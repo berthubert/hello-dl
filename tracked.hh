@@ -1,10 +1,11 @@
 #pragma once
-#include <Eigen/Dense>
 #include <memory>
 #include <string>
 #include <iostream>
 #include <fstream>
-#include <set>
+#include <assert.h>
+#include <algorithm>
+#include <math.h>
 #include <unordered_set>
 extern std::ofstream g_tree;
 
@@ -104,11 +105,6 @@ struct TrackedNumberImp
     v=0;
   }
   
-  static void setZero(Eigen::MatrixXf& v)
-  {
-    v.setZero();
-  }
-
   TrackedNumberImp(const TrackedNumberImp&) = delete;
   TrackedNumberImp& operator=(const TrackedNumberImp&) = delete;
   TrackedNumberImp()
@@ -350,11 +346,6 @@ struct TrackedNumber
   void setOne(float& mul)
   {
     mul=1;
-  }
-
-  void setOne(Eigen::MatrixXf& mul)
-  {
-    mul.setConstant(1);
   }
 
   std::vector<TrackedNumberImp<T>* > getTopo()
