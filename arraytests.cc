@@ -93,7 +93,7 @@ TEST_CASE("array sum test") {
   
 }
 
-TEST_CASE("array mean test") {
+TEST_CASE("array mean, min, max test") {
 
   NNArray<float, 4, 1> in;
   in(0,0)=1;
@@ -107,7 +107,26 @@ TEST_CASE("array mean test") {
   CHECK(in(0,0).getGrad() == doctest::Approx(0.25));
 
   CHECK(in.maxValueIndexOfColumn(0) == 2);
+  CHECK(in.minValueIndexOfColumn(0) == 0);
 }
+
+TEST_CASE("array meanstd test") {
+
+  NNArray<float, 4, 1> in;
+  in(0,0)=1;
+  in(1,0)=2;
+  in(2,0)=4;
+  in(3,0)=3;
+
+  auto [mean, std] = in.getMeanStd();
+  CHECK(mean == doctest::Approx(2.5));
+  CHECK(std == doctest::Approx(sqrt(((1-2.5)*(1-2.5) +
+                                     (2-2.5)*(2-2.5) +
+                                     (4-2.5)*(4-2.5) +
+                                     (3-2.5)*(3-2.5))/3.0)));
+
+}
+
 
 
 TEST_CASE("array logsoftmax") {
@@ -125,4 +144,144 @@ TEST_CASE("array logsoftmax") {
   CHECK(m(1,0).getVal() == doctest::Approx(-2.00641));
   CHECK(m(2,0).getVal() == doctest::Approx(-2.00641));
   CHECK(m(3,0).getVal() == doctest::Approx(-1.00641));
+}
+
+
+TEST_CASE("max2d") {
+
+  NNArray<float, 4, 4> in;
+  in(0,0)=1;        in(0,1)=2;        in(0,2)=3;        in(0,3)=1;      
+  in(1,0)=0;        in(1,1)=0;        in(1,2)=0;        in(1,3)=0;      
+  in(2,0)=0;        in(2,1)=0;        in(2,2)=-9;        in(2,3)=-5;   
+  in(3,0)=1;        in(3,1)=7;        in(3,2)=-4;        in(3,3)=-3;      
+
+  auto m = in.Max2d<2>();
+
+  CHECK(m(0,0).getVal() == 2);
+  CHECK(m(0,1).getVal() == 3);
+  CHECK(m(1,0).getVal() == 7);
+  CHECK(m(1,1).getVal() == -3);
+
+  auto s = m.sum();
+  s.backward();
+  CHECK(in(0,0).getGrad() == 0);
+  CHECK(in(0,1).getGrad() == 1);
+}
+
+
+TEST_CASE("convo2d simple") {
+  NNArray<float, 4, 4> in;
+  in(0,0)=1;        in(0,1)=2;        in(0,2)=3;        in(0,3)=1;      
+  in(1,0)=0;        in(1,1)=0;        in(1,2)=0;        in(1,3)=0;      
+  in(2,0)=0;        in(2,1)=0;        in(2,2)=-9;        in(2,3)=-5;   
+  in(3,0)=1;        in(3,1)=7;        in(3,2)=-4;        in(3,3)=-3;      
+
+  NNArray<float, 1, 1> w;
+  w(0,0)=2;
+  NNArray<float, 1, 1> b;
+  b(0,0)=0;
+  auto m = in.Convo2d<1>(w,b);
+
+  CHECK(m(0,0).getVal() == 2);
+  CHECK(m(0,1).getVal() == 4);
+  CHECK(m(1,0).getVal() == 0);
+  CHECK(m(1,1).getVal() == 0);
+  CHECK(m(3,3).getVal() == -6);
+
+  
+}
+
+TEST_CASE("convo2d more") {
+  NNArray<float, 4, 4> in;
+  in(0,0)=1;        in(0,1)=2;        in(0,2)=3;        in(0,3)=1;      
+  in(1,0)=1;        in(1,1)=0;        in(1,2)=0;        in(1,3)=0;      
+  in(2,0)=0;        in(2,1)=0;        in(2,2)=-9;        in(2,3)=-5;   
+  in(3,0)=1;        in(3,1)=7;        in(3,2)=-4;        in(3,3)=-3;      
+
+  NNArray<float, 4, 4> w;
+  NNArray<float, 1, 1> b;
+  w.constant(2);
+  b.constant(1);
+  auto m = in.Convo2d<4>(w,b);
+  CHECK(in.sum().getVal() == -5);
+  CHECK(m(0,0).getVal() == -9);  // 2*-5 + 1
+
+  auto s = m.sum();
+  s.backward();
+  CHECK(in(0,0).getGrad() == 2);
+  CHECK(w(0,0).getGrad() == 1);
+  CHECK(w(0,1).getGrad() == 2);
+  CHECK(b(0,0).getGrad() == 1);
+}
+
+TEST_CASE("combined") {
+  NNArray<float, 28, 28> img;
+  int ctr=0;
+  for(unsigned int r=0; r < img.getRows(); ++r)
+    for(unsigned int c=0; c < img.getCols(); ++c)
+      img(r,c)=(ctr++);
+
+  // 0 28 ...
+  // 1 29
+  // 2 30
+  // 3 31
+  // . ..
+
+
+  NNArray<float, 5,5> kernel;
+  NNArray<float, 1,1> bias;
+  bias.zero();
+  kernel.constant(2);
+  kernel(4,4) = 0; // a hole
+  
+  auto res = img.Convo2d<5>(kernel, bias);
+  CHECK(res.getRows() == 24);
+  CHECK(res.getCols() == 24);
+
+  float val=0;
+
+  for(int r=0; r< 5; ++r) {
+    for(int c=0; c< 5; ++c) {
+      val+=c * 28 + r;
+    }
+  }
+  val -= 4*28 + 4;
+  val *= 2;
+  
+  CHECK(res(0,0).getVal() == val);
+
+  res(0,0).backward();
+  CHECK(img(0,0).getGrad() == 2);
+  CHECK(img(1,2).getGrad() == 2);
+  CHECK(img(3,2).getGrad() == 2);
+  CHECK(img(4,4).getGrad() == 0);
+}
+
+TEST_CASE("cross entropy") {
+  NNArray<float, 4, 1> in;
+  in(0,0)=2; 
+  in(1,0)=0; 
+  in(2,0)=0; 
+  in(3,0)=1;
+
+  auto logscores = in.logSoftMax();
+  //  cout<<"Logscores:\n"<<logscores<<endl;
+
+  NNArray<float, 1, 4> expected;
+  expected.zero();
+  expected(0,0)=1; 
+  //  cout<<"Expected: "<<expected<<endl;
+  auto loss = TrackedFloat(0) - (expected*logscores)(0,0);
+  auto oldloss = loss.getVal();
+  //  cout<<"Loss: "<<loss.getVal()<<endl;
+  loss.backward();
+
+  //  cout << in(0,0).getGrad()<<endl;
+  //  cout << in(1,0).getGrad()<<endl;
+
+  // "learn a bit"
+  in(0,0) = in(0,0).getVal() - 0.2 * in(0,0).getGrad();
+  loss.zeroGrad();
+  //  cout<<"New loss: "<<loss.getVal() << endl;
+  CHECK(loss.getVal() < oldloss);
 }

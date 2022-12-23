@@ -22,7 +22,6 @@ struct SquareFunc
   }
 };
 
-
 struct ReluFunc
 {
   static float func(const float& in)
@@ -95,21 +94,6 @@ struct LogFunc
   static std::string getName() { return "log"; }
 };
 
-
-
-struct IDFunc
-{
-  static float func(const float& in)
-  {
-    return in;
-  }
-  static float deriv([[maybe_unused]]const float& in)
-  {
-    return 1;
-  }
-  static std::string getName() { return "ID"; }
-};
-
 static uint64_t s_count;
 
 template<typename T>
@@ -162,6 +146,10 @@ struct TrackedNumberImp
       d_val=(d_lhs->getVal() / d_rhs->getVal());
     else if(d_mode == Modes::Func) {
       d_val = d_func(d_lhs->getVal());
+    }
+    else if(d_mode == Modes::Max) {
+      T l = d_lhs->getVal(), r=d_rhs->getVal();
+      d_val = std::max(l, r);
     }
     else
       abort();
@@ -273,6 +261,17 @@ struct TrackedNumberImp
 
       d_lhs->d_grad+=(d_grad*d_deriv(d_lhs->d_val));
     }
+    else if(d_mode == Modes::Max) {
+      if(doLog) std::cout<<"Max... "<<std::endl;
+      if(g_tree) g_tree<<'"'<<(void*)this<< "\" [label=\""<<"max\"]\n";
+      if(g_tree) g_tree<<'"'<<(void*)this<< "\" -> \""<<(void*)d_lhs.get()<<"\"\n";
+
+      if(d_lhs->d_val < d_rhs->d_val)
+        d_rhs->d_grad+= d_grad;
+      else
+        d_lhs->d_grad+= d_grad;
+    }
+
     else
       abort();
   }
@@ -286,7 +285,8 @@ struct TrackedNumberImp
     Addition=2,
     Mult=3,
     Div=4,
-    Func=5
+    Func=5,
+    Max=6
   };
   std::shared_ptr<TrackedNumberImp> d_lhs, d_rhs;  
   mutable T d_val; // 4
@@ -404,7 +404,6 @@ TrackedNumber<T> operator-(const TrackedNumber<T>& lhs, const TrackedNumber<T>& 
   return lhs + (TrackedNumber<T>(-1)*rhs);
 }
 
-
 template<typename T>
 TrackedNumber<T> operator*(const TrackedNumber<T>& lhs, const TrackedNumber<T>& rhs)
 {
@@ -420,7 +419,6 @@ TrackedNumber<T> operator*(const TrackedNumber<T>& lhs, const TrackedNumber<T>& 
   return ret;
 }
 
-
 template<typename T>
 TrackedNumber<T> operator/(const TrackedNumber<T>& lhs, const TrackedNumber<T>& rhs)
 {
@@ -434,9 +432,21 @@ TrackedNumber<T> operator/(const TrackedNumber<T>& lhs, const TrackedNumber<T>& 
   return ret;
 }
 
+template<typename T>
+TrackedNumber<T> makeMax(const TrackedNumber<T>& lhs, const TrackedNumber<T>& rhs)
+{
+  TrackedNumber<T> ret;
+  ret.impl = std::make_shared<TrackedNumberImp<T>>();
+  ret.impl->d_mode = TrackedNumberImp<T>::Modes::Max;
+  assert(lhs.impl != 0);
+  ret.impl->d_lhs = lhs.impl;
+  assert(rhs.impl != 0);
+  ret.impl->d_rhs = rhs.impl;
+  return ret;
+}
 
 template<typename T, typename F>
-TrackedNumber<T> doFunc(const TrackedNumber<T>& lhs, [[maybe_unused]] const F& f)
+TrackedNumber<T> makeFunc(const TrackedNumber<T>& lhs, [[maybe_unused]] const F& f)
 {
   
   TrackedNumber<T> ret;
@@ -448,7 +458,5 @@ TrackedNumber<T> doFunc(const TrackedNumber<T>& lhs, [[maybe_unused]] const F& f
   
   return ret;
 }
-
-
 
 typedef TrackedNumber<float> TrackedFloat;

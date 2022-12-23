@@ -105,9 +105,9 @@ TEST_CASE("reuse test") {
 
 TEST_CASE("temporaries") {
   TrackedFloat x(3), y(1);
-  TrackedFloat res = doFunc((x - y), SquareFunc());
+  TrackedFloat res = makeFunc((x - y), SquareFunc());
   CHECK(res.getVal() == 4);
-  res = doFunc((x + y), SquareFunc());
+  res = makeFunc((x + y), SquareFunc());
   CHECK(res.getVal() == 16);
 }
 
@@ -146,7 +146,7 @@ TEST_CASE("reuse test grad") {
 TEST_CASE("relu test") {
   TrackedFloat x(-1.0);
   TrackedFloat y(2.0);
-  TrackedFloat res = doFunc(x+y, ReluFunc());
+  TrackedFloat res = makeFunc(x+y, ReluFunc());
   
   CHECK(res.getVal() == 1.0);
   res.backward();
@@ -164,7 +164,7 @@ TEST_CASE("relu test") {
 TEST_CASE("sigmoid test") {
   TrackedFloat x(-1.0);
   TrackedFloat y(2.0);
-  TrackedFloat res = doFunc(x+y, SigmoidFunc());
+  TrackedFloat res = makeFunc(x+y, SigmoidFunc());
   
   CHECK(res.getVal() ==   SigmoidFunc::func(1.0));
   res.backward();
@@ -184,7 +184,7 @@ TEST_CASE("sigmoid test") {
 TEST_CASE("sigmoid advanced test") {
   TrackedFloat x(-1.0);
   TrackedFloat y(2.0);
-  TrackedFloat res = doFunc(x*x+y*y*y, SigmoidFunc());
+  TrackedFloat res = makeFunc(x*x+y*y*y, SigmoidFunc());
   
   CHECK(res.getVal() ==   SigmoidFunc::func(9.0));
   res.backward();
@@ -196,7 +196,7 @@ TEST_CASE("sigmoid negative test") {
   TrackedFloat x(-1.0);
   TrackedFloat y(2.0);
   TrackedFloat one(1.0);
-  TrackedFloat res = one-doFunc(x*x+y*y*y, SigmoidFunc());
+  TrackedFloat res = one-makeFunc(x*x+y*y*y, SigmoidFunc());
   
   CHECK(res.getVal() ==   1-SigmoidFunc::func(9.0));
   res.backward();
@@ -243,4 +243,22 @@ TEST_CASE("typical loss func test") {
 
   result = result.getVal() - 0.1*grad;
   CHECK(loss.getVal() == doctest::Approx((1.0-0.80)*(1.0-0.80)));
+}
+
+
+TEST_CASE("max test") {
+
+  TrackedFloat x(2), y(3);
+  auto res = makeMax(x,y);
+  CHECK(res.getVal() == 3);
+  res.backward();
+  CHECK(x.getGrad()==0);
+  CHECK(y.getGrad()==1);
+  res.zeroGrad();
+  auto res2 = TrackedFloat(4)*res;
+  CHECK(res2.getVal() == 12);
+  res2.backward();
+  CHECK(x.getGrad()==0);
+  CHECK(y.getGrad()==4);
+  
 }

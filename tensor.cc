@@ -27,7 +27,7 @@ struct State {
     img.zero();
     flat = img.flatViewRow();
     output = weights * flat + bias;
-    score = doFunc(output(0,0), SigmoidFunc());
+    score = makeFunc(output(0,0), SigmoidFunc());
     expected = 0;
     loss = (expected - score) * (expected - score);
   }
