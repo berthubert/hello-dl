@@ -278,7 +278,7 @@ struct TrackedNumberImp
   
   // inspiration: https://github.com/flashlight/flashlight/blob/main/flashlight/fl/autograd/Variable.cpp
   // more inspiration: https://github.com/karpathy/micrograd/blob/master/micrograd/engine.py
-  enum class Modes
+  enum class Modes : uint8_t
   {
     Unassigned = 0,
     Parameter=1,
@@ -448,7 +448,6 @@ TrackedNumber<T> makeMax(const TrackedNumber<T>& lhs, const TrackedNumber<T>& rh
 template<typename T, typename F>
 TrackedNumber<T> makeFunc(const TrackedNumber<T>& lhs, [[maybe_unused]] const F& f)
 {
-  
   TrackedNumber<T> ret;
   ret.impl = std::make_shared<TrackedNumberImp<T>>();
   ret.impl->d_mode = TrackedNumberImp<T>::Modes::Func;

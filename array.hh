@@ -236,10 +236,6 @@ struct NNArray
     return xValueIndexOfColumn(col, -1.0);
   }
 
-  
-  // *this is ROWS*COLS
-  // a is COLS*N
-  
   template<unsigned int N>
   NNArray<T, ROWS, N>
   operator*(const NNArray<T, COLS, N>& a) const
