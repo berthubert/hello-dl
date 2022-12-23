@@ -30,6 +30,7 @@ AWESOME [C++ implementation of OpenAI's Whisper speech/translation model](https:
  * Cover all the techniques that form the backbone of modern DL successes
  * Use language and terms that are compatible with modern day usage
    * So you can also understand PyTorch tutorials
+ * Provide modules that mirror functionality in PyTorch
 
 Non-goals:
 
@@ -41,14 +42,64 @@ have worked with the tools that it should all make sense to you. And *then*
 you can get to work with professional tooling and get to work.
 
 # Status
-So far this implements a small but pretty nice autograd system.  Initial
-experiments (like `first-relu`) look reasonably ok.
+So far this implements a small but pretty nice autograd system. In
+`first-convo.cc` you can find a ~1100 line total computer program that
+learns to recognize handwritten digits in 10 minutes (90% accuracy so far).
+
+```bash
+git clone https://github.com/berthubert/hello-dl.git
+cd hello-dl
+cmake .
+make -j4
+wget http://www.itl.nist.gov/iaui/vip/cs_links/EMNIST/gzip.zip
+unzip gzip.zip
+./first-convo
+```
+This will require 10GB of RAM for now, which seems a bit too much. But the
+result is nice:
+
+```
+Start!
+Have 240000 images
+Configuring network................................................................
+Tying... done
+Getting topology.. 
+(some time passes)
+Percent batch correct: 32.8125%
+Average loss: 2.1219. Predicted: 8, actual: 8: We got it right!
+Loss: 1.89751, -2.44847 -2.54296 -2.43445 -1.92324 -3.07031 -2.50595 -2.27749 -2.1481 -1.89751 -2.26366
+          .******           
+         *XXXXXXXXX.        
+        .XXXXX**XXXX        
+        XXXX.    XXX.       
+        XXX*     *XX*       
+       .XXX.     .XX*       
+        XXX.     *XX.       
+        XXX.     XXX        
+        *XXX.   XXXX        
+         *XXX. .XXX*        
+         .XXXXXXXXX*        
+           *XXXXXXX         
+            XXXXXX.         
+          .XXXXXXX.         
+         .XXXXXXXXX         
+        .XXX*   XXX*        
+        *XXX    XXX*        
+        XXX*    XXX*        
+        XXX.    *XX*        
+        XXX*    XXX*        
+        *XXX*.*XXXX*        
+        *XXXXXXXXXX.        
+         .XXXXXXX.          
+           *****            
+```
 
 This software is meant to accompany a series of blog posts introducing deep
 learning from the ground up. That series hasn't started yet as I am still
 figuring out how this stuff works.
 
-If you want to see something cool already, take a look at [testrunner.cc]
+If you want to see something cool already, take a look at
+[testrunner.cc](./testrunner.cc)
 which already shows some of the autogradient stuff.
 
 # Getting started
@@ -57,7 +108,7 @@ To actually do something [download the
 EMNIST](http://www.itl.nist.gov/iaui/vip/cs_links/EMNIST/gzip.zip) dataset
 and unzip it. There's no need to gunzip the .gz files.
 
-Next up, run `./tensor` or `./first-relu` and wonder what you are seeing.
+Next up, run `./tensor` or `./first-convo` and wonder what you are seeing.
 
 # Data
 https://www.nist.gov/itl/products-and-services/emnist-dataset
