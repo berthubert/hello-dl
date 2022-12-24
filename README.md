@@ -5,7 +5,7 @@ Other documents start out from the (very impressive) PyTorch environment, or
 they attempt to math it up from first principles. 
 
 Trying to understand deep learning via PyTorch is like trying to learn
-aerodynamics from flying Airbus A380. 
+aerodynamics from flying an Airbus A380. 
 
 Meanwhile the pure maths approach ("see it is easy, it is just a Jacobian
 matrix") is probably only suited to people who dream in derivatives.
@@ -42,7 +42,7 @@ have worked with the tools that it should all make sense to you. And *then*
 you can get to work with professional tooling and get to work.
 
 # Acknowledgments 
-Despite doing neural networks in the 1990s, I'm extremely new to the modern stuff. The following projects/sites have been very useful in catching up:
+Despite doing some neural network experiments in the 1990s, I'm extremely new to the modern stuff. The following projects/sites have been very useful in catching up:
 
  * NIST and Gregory Cohen, Saeed Afshar, Jonathan Tapson, and Andre van Schaik
    from The MARCS Institute for Brain, Behaviour and Development for creating and maintaining the MNIST [database of handwritten characters](https://arxiv.org/abs/1702.05373).
@@ -50,7 +50,7 @@ Despite doing neural networks in the 1990s, I'm extremely new to the modern stuf
  * Facebook's [Flashlight](https://github.com/flashlight/flashlight), a fast, flexible machine learning library written entirely in C++ from the Facebook AI Research and the creators of Torch, TensorFlow, Eigen and Deep Speech. Their source code helped me understand lots of things.
  * [Andrej Karpathy](https://twitter.com/karpathy)'s [micrograd](https://github.com/karpathy/micrograd) Python autogradient implementation is a tiny work of art
  * [FastAI](https://fast.ai)'s Jupyter notebooks.
-
+ 
 # Status
 So far this implements a small but pretty nice autograd system. In
 `first-convo.cc` you can find a ~1100 line total computer program that
