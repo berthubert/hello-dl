@@ -38,8 +38,7 @@ struct SArray
     for(auto& v : d_store)
       v*=val;
     return *this;
-  }
-  
+  }  
 };
 
 
@@ -90,7 +89,6 @@ struct NNArray
 
     return *this;
   }
-
   
   void randomize(T fact=1.0)
   {
@@ -140,15 +138,11 @@ struct NNArray
 
   
   // does it in ALL fields, not by row
+  // https://pytorch.org/docs/stable/generated/torch.nn.LogSoftmax.html
   auto logSoftMax() 
   {
     NNArray<T, ROWS, COLS> ret;
     TrackedNumber<T> sum=0;
-
-    // has the problem that it can exceed the max exponentiable value
-    //c = x.max()
-    //logsumexp = np.log(np.exp(x - c).sum())
-    //return x - c - logsumexp
 
     TrackedNumber<T> lemax=d_store.at(0);
     for(size_t pos = 1; pos < d_store.size(); ++pos)
@@ -241,20 +235,15 @@ struct NNArray
   operator*(const NNArray<T, COLS, N>& a) const
   {
     NNArray<T, ROWS, N> ret;
-    //    std::cout << "N " <<N << " ROWS " << ROWS <<" COLS "<<COLS<<std::endl;
 
     for (size_t i = 0; i < ROWS; ++i) {
       for (size_t j = 0; j < N; ++j) {
         ret(i,j) = 0;
         for (size_t k = 0; k < COLS; ++k) {
-          //          std::cout << i<<","<<j<<","<<k<< std::endl;
-          // XXX bit worried over the below
           ret(i,j) = ret(i,j) + (*this)(i,k) * a(k,j);
-          //std::cout<< ret(i,j).getVal() << std::endl;
         }
       }
     }
-    
     return ret;
   }
 
@@ -264,7 +253,7 @@ struct NNArray
       v.zeroGrad();
   }
 
-  NNArray<T, ROWS, COLS> elMult(NNArray<T, ROWS, COLS>& w)
+  auto elMult(NNArray<T, ROWS, COLS>& w)
   {
     NNArray<T, ROWS, COLS> ret;
     for(size_t pos = 0 ; pos < d_store.size(); ++pos)
@@ -289,7 +278,6 @@ struct NNArray
         ret(r,c) = kernel.elMult(weights).sum() + bias(0,0);
       }
     }
-    
     return ret;
   }
 
@@ -310,15 +298,39 @@ struct NNArray
         }
         ret(r,c) = max;
       }
-
-              
     }
     
     return ret;
   }
 
-  
+  void save(std::ostream& out) const
+  {
+    float rows=ROWS, cols=COLS;
+    auto swrite = [&out](float v) {
+      out.write((char*)&v, sizeof(v));
+    };
+    swrite(rows);
+    swrite(cols);
+    for(const auto& v : d_store)
+      swrite(v.getVal());
+  }
+
+  void load(std::istream& in)
+  {
+    auto sread = [&in]() {
+      float v;
+      in.read((char*)&v, sizeof(v));
+      return v;
+    };
+    if(ROWS != sread() || COLS !=sread())  // living dangerously here!
+      throw std::logic_error("Dimensions of stream to load from do not match");
+    
+    for(auto& v : d_store)
+      v = sread();
+  }
 };
+
+
 
 template<typename T, unsigned int ROWS, unsigned int COLS>
 NNArray<T, ROWS, COLS> operator-(const NNArray<T, ROWS, COLS>& lhs, const NNArray<T, ROWS, COLS>& rhs)

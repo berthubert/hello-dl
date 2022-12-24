@@ -34,6 +34,15 @@ target_link_libraries(first-convo
   z
 )
 
+add_executable(modular-convo modular-convo.cc mnistreader.cc)
+target_link_libraries(modular-convo
+  z
+)
+add_executable(try-convo try-convo.cc mnistreader.cc)
+target_link_libraries(try-convo
+  z
+)
+
 
 add_executable(los los.cc)
 target_link_libraries(los

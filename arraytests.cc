@@ -1,5 +1,6 @@
 #include "ext/doctest.h"
 #include "array.hh"
+#include <sstream>
 using namespace std;
 
 
@@ -283,4 +284,28 @@ TEST_CASE("cross entropy") {
   loss.zeroGrad();
   //  cout<<"New loss: "<<loss.getVal() << endl;
   CHECK(loss.getVal() < oldloss);
+}
+
+TEST_CASE("Saving and restoring arrays")
+{
+  ostringstream str;
+  NNArray<float, 20, 25> f;
+  f.randomize();
+
+  f.save(str);
+
+  ofstream ofs("test.arr");
+  f.save(ofs);
+  
+  string saved = str.str();
+
+  NNArray<float, 20, 25> restored;
+  restored.zero();
+  istringstream istr(saved);
+
+  restored.load(istr);
+
+  auto diff = restored - f;
+  CHECK(diff.sum().getVal() ==  0);
+  
 }

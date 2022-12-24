@@ -7,41 +7,22 @@
 #include "tracked.hh"
 #include "mnistreader.hh"
 #include "misc.hh"
-
+#include <fenv.h>
 using namespace std;
 
 ofstream g_tree; //("tree.part");
 
-template<typename T>
-void printImg(const T& img)
-{
-  for(unsigned int y=0; y < img.getRows(); ++y) {
-    for(unsigned int x=0; x < img.getCols(); ++x) {
-      float val = img(y,x).getVal();
-      if(val > 0.5)
-        cout<<'X';
-      else if(val > 0.25)
-        cout<<'*';
-      else if(val > 0.125)
-        cout<<'.';
-      else
-        cout<<' ';
-    }
-    cout<<'\n';
-  }
-  cout<<"\n";
-}
-
 /*
 Gratefully copied from 'mnist.cpp' in the PyTorch example repository
+https://github.com/pytorch/examples/blob/main/cpp/mnist/mnist.cpp
 
 This model takes MNIST 28*28 input and:
 
   * normalizes to "0.1307, 03081", torch::data::transforms::Normalize<>(0.1307, 0.3081)
 
-  * applies a 5*5 kernel convolution `conv1`, configured to emit 10 layers, 23*23
+  * applies a 5*5 kernel convolution `conv1`, configured to emit 10 layers, 24*24
   * does max_pool2d on these, which takes non-overlapping 2*2 rectangles 
-    and emits max value per rectangle. Delivers 12*12 values for each layer (1 pixel is invented)
+    and emits max value per rectangle. Delivers 12*12 values for each layer 
   * ReLu
   * does another 5x5 convolution `conv2` on the 10 layers, turning them into 20
   * randomly *zeroes* half of the 20 layers `conv2_drop` - no state, Bernoulli 
@@ -77,7 +58,7 @@ struct CNNModel {
     // randomly zero half of the 20 XXX MISSING
     // max2d
     //            out  in
-    NNArray<float, 50, 320> fc1w; // will become 320
+    NNArray<float, 50, 320> fc1w; 
     NNArray<float, 50, 1> fc1b;
     // relu
     // flatten
@@ -98,7 +79,7 @@ struct CNNModel {
       for(auto &c : c2b)
         c.randomize(sqrt(1/(10*25.0)));
       
-      fc1w.randomize(sqrt(1/320.0));
+      fc1w.randomize(sqrt(1/320.0));  // sqrt(1/input)
       fc1b.randomize(sqrt(1/320.0));
       fc2w.randomize(sqrt(1/50.0));
       fc2b.randomize(sqrt(1/50.0));
@@ -125,7 +106,7 @@ struct CNNModel {
     for(auto& p : step2)
       p = step1[ctr++].Max2d<2>().applyFunc(ReluFunc());
 
-    // The 20 output layers of the next convo2d have 20 filters
+    // The 20 output layers of the next conv2d have 20 filters
     // these filters need to be applied to all 10 input layers
     // and the output is the addition of the outputs of those filters
     
@@ -207,6 +188,7 @@ void scoreModel(S& s, const MNISTReader& mntest, int batchno)
 int main()
 {
   cout<<"Start!"<<endl;
+  feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW );
 
   MNISTReader mn("gzip/emnist-digits-train-images-idx3-ubyte.gz", "gzip/emnist-digits-train-labels-idx1-ubyte.gz");
   cout<<"Have "<<mn.num()<<" images"<<endl;

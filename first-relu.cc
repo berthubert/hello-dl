@@ -50,9 +50,9 @@ struct ReluModel {
 
     auto output5 = s.w3 * output4 + s.b3;
 
-    scores = output5.norm();
+    scores = output5.logSoftMax();
     expected.zero();
-    loss = TrackedFloat(1)-(expected*scores)(0,0);
+    loss = TrackedFloat(0)-(expected*scores)(0,0);
   }
 };
 
@@ -93,25 +93,22 @@ void scoreModel(S& s, const MNISTReader& mntest)
 int main()
 {
   cout<<"Start!"<<endl;
-
   feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW );
 
   MNISTReader mn("gzip/emnist-digits-train-images-idx3-ubyte.gz", "gzip/emnist-digits-train-labels-idx1-ubyte.gz");
-
-
   MNISTReader mntest("gzip/emnist-digits-test-images-idx3-ubyte.gz", "gzip/emnist-digits-test-labels-idx1-ubyte.gz");
 
   cout<<"Have "<<mn.num()<<" training images and "<<mntest.num()<<" test images"<<endl;
   
   ReluModel::State s;
-  s.w1.randomize();
-  s.b1.randomize();
+  s.w1.randomize(sqrt(1/(28.0*28.0)));
+  s.b1.randomize(sqrt(1/(28.0*28.0)));
   
-  s.w2.randomize();
-  s.b2.randomize();
-
-  s.w3.randomize();
-  s.b3.randomize();
+  s.w2.randomize(sqrt(1/(128.0)));
+  s.b2.randomize(sqrt(1/(128.0)));
+                 
+  s.w3.randomize(sqrt(1/(64.0)));
+  s.b3.randomize(sqrt(1/(64.0)));
 
 
   cout<<"Configuring network";
@@ -130,7 +127,7 @@ int main()
   TrackedFloat totalLoss=0;
   for(auto& m : models)
     totalLoss = totalLoss + m.loss;
-
+  totalLoss = totalLoss/TrackedFloat(models.size());
   cout<<"done"<<endl;
   cout<<"Getting topology.. ";
   cout.flush();
@@ -149,13 +146,6 @@ int main()
     auto batch = batcher.getBatch(models.size());
     if(batch.empty())
       break;
-    /*
-    static decltype(batch) prevbatch;
-    if(tries==1)
-      batch=prevbatch;
-    else
-      prevbatch=batch;
-    */
     for(size_t i = 0; i < batch.size(); ++i) {
       ReluModel& m = models.at(i);
 
@@ -171,7 +161,7 @@ int main()
     
     cout<<"Average loss: ";
     cout.flush();
-    cout<<totalLoss.getVal() / models.size() <<". ";
+    cout<<totalLoss.getVal() <<". ";
     int corrects=0, wrongs=0;
 
     for(auto& m : models) {
@@ -190,7 +180,7 @@ int main()
     totalLoss.backward(topo);
     cout<<"Done backwarding"<<endl;
 
-    double lr=0.0001;//.2;
+    double lr=0.2;//.2;
 
     auto doLearn=[&lr](auto& v){
       auto grad = v.getGrad();
