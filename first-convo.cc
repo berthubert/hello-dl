@@ -161,22 +161,31 @@ struct CNNModel {
 };
 
 template<typename M, typename S>
-void scoreModel(S& s, const MNISTReader& mntest)
+void scoreModel(S& s, const MNISTReader& mntest, int batchno)
 {
   unsigned int corrects=0, wrongs=0;
-
+  static ofstream vcsv("validation.csv");
+  static bool notfirst;
+  if(!notfirst) {
+    vcsv<<"batchno,corperc,avgloss\n";
+    notfirst=true;
+  }
+  
   M model;
   model.init(s);
 
-  unsigned int limit = mntest.num() - 1;
-  limit=100;
   auto topo = model.loss.getTopo();
-  for(unsigned int i = 0 ; i < limit; ++i){
-    cout<<".";
-    cout.flush();
+  Batcher batcher(mntest.num());
+  auto batch = batcher.getBatch(100);
+  double totalLoss=0;
+  for(auto i : batch) {
+    cout<<".";    cout.flush();
     int label = mntest.getLabel(i);
 
     mntest.pushImage(i, model.img);
+    model.expected.zero();
+    model.expected(0,label) = 1; // "one hot vector"
+    
     int verdict = model.scores.maxValueIndexOfColumn(0);
 
     if(verdict == label) {
@@ -185,11 +194,14 @@ void scoreModel(S& s, const MNISTReader& mntest)
     else {
       wrongs++;
     }
+    totalLoss += model.loss.getVal();
     model.loss.zeroGrad(topo);
   }
   cout<<"\n";
   double perc = corrects*100.0/(corrects+wrongs);
-  cout<<perc<<"% correct\n";
+  double avgLoss = totalLoss/batch.size();
+  cout<<perc<<"% correct, average loss "<<avgLoss<<"\n";
+  vcsv << batchno <<"," << perc << ", " << avgLoss << endl; 
 }
 
 int main()
@@ -228,12 +240,15 @@ int main()
   cout<<"done"<<endl;
   
   cout<<TrackedNumberImp<float>::getCount()<<" instances"<<endl;
+  unsigned int batchno=0;
+  ofstream tcsv("training.csv");
+  tcsv<<"batchno,corperc,avgloss"<<endl;
   for(;;) {
     Batcher batcher(mn.num()); // badgerbadger
     
     for(int tries=0;;++tries) {
       if(!(tries %32))
-        scoreModel<CNNModel, CNNModel::State>(s, mntest);
+        scoreModel<CNNModel, CNNModel::State>(s, mntest, batchno);
       
       auto batch = batcher.getBatch(models.size());
       if(batch.size() != models.size())
@@ -270,10 +285,14 @@ int main()
           corrects++;
         else wrongs++;
       }
-      cout<<"Percent batch correct: "<<100.0*corrects/(corrects+wrongs)<<"%"<<endl;
+      double perc = 100.0*corrects/(corrects+wrongs);
+      cout<<"Percent batch correct: "<<perc<<"%"<<endl;
+
+      tcsv << batchno <<"," << perc << ", " << totalLoss.getVal() << endl; 
+      
       totalLoss.backward(topo);
       //      cout<<"Done backwarding"<<endl;
-      double lr=0.01; // mnist.cpp has 0.01, plus "momentum" of 0.5, which we don't have
+      double lr=0.005; // mnist.cpp has 0.01, plus "momentum" of 0.5, which we don't have
       
       auto doLearn=[&lr](auto& v){
         auto grad = v.getGrad();
@@ -297,7 +316,9 @@ int main()
         doLearn(c);
 
       totalLoss.zeroGrad(topo);
+      batchno++;
     }
+
   }
-  scoreModel<CNNModel>(s, mntest);
+  scoreModel<CNNModel>(s, mntest, batchno);
 }

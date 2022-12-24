@@ -168,7 +168,7 @@ struct TrackedNumberImp
   {
     return v;
   }
-
+  // this function is key to the magic
   void build_topo(std::unordered_set<TrackedNumberImp<T>*>& visited, std::vector<TrackedNumberImp<T>*>& topo)
   {
     if(visited.count(this))
