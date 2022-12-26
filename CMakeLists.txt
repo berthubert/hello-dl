@@ -49,7 +49,7 @@ target_link_libraries(los
   z
 )
 
-add_executable(testrunner testrunner.cc arraytests.cc)
+add_executable(testrunner testrunner.cc arraytests.cc testfvector.cc)
 
 target_link_libraries(testrunner
   z
