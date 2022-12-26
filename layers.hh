@@ -13,7 +13,7 @@ struct Linear
   {
     randomize();
   }
-  void randomize()
+  void randomize() // "Xavier initialization"  http://proceedings.mlr.press/v9/glorot10a/glorot10a.pdf
   {
     d_weights.randomize(1.0/sqrt(IN));
     d_bias.randomize(1.0/sqrt(IN));
