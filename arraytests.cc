@@ -168,6 +168,28 @@ TEST_CASE("max2d") {
   CHECK(in(0,1).getGrad() == 1);
 }
 
+TEST_CASE("max2d padding") {
+
+  NNArray<float, 3, 3> in;
+  in(0,0)=1;        in(0,1)=2;        in(0,2)=3;       
+  in(1,0)=0;        in(1,1)=0;        in(1,2)=0;       
+  in(2,0)=0;        in(2,1)=0;        in(2,2)=-9;      
+
+
+  NNArray<float, 2, 2> m = in.Max2d<2>();
+
+  CHECK(m(0,0).getVal() == 2);
+  CHECK(m(0,1).getVal() == 3);
+  CHECK(m(1,0).getVal() == 0);
+  CHECK(m(1,1).getVal() == -9);
+
+  auto s = m.sum();
+  s.backward();
+  CHECK(in(0,0).getGrad() == 0);
+  CHECK(in(0,1).getGrad() == 1);
+}
+
+
 
 TEST_CASE("convo2d simple") {
   NNArray<float, 4, 4> in;
