@@ -117,8 +117,10 @@ struct NNArray
     return *this;
   }
 
-  //  auto& operator-=(const SArray<float, ROWS, COLS>& rhs)
-  auto& decrUnparallel(const SArray<float, ROWS, COLS>& rhs)
+  template<class Q=T,
+           class std::enable_if<std::is_union<Q>::value, int>::type = 0>
+  auto& operator-=(const SArray<float, ROWS, COLS>& rhs)
+  //  auto& decrUnparallel(const SArray<float, ROWS, COLS>& rhs)
   {
     // this changes the contents of weights to a new numerical value, based on the old one
     // by doing it like this, tracking is retained
