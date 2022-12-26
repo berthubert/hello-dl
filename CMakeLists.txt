@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.1)
-set(CMAKE_CXX_FLAGS "-Wall -Wextra -O3 -g")
+set(CMAKE_CXX_FLAGS "-Wall -Wextra -O3 -ggdb -march=native -msse2 -mavx -mavx2")
 
 project(hello-dl VERSION 1.0
                   DESCRIPTION "Hello deep learning"
