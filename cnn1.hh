@@ -46,7 +46,7 @@ struct CNNModel {
     Conv2d<12, 12, 5, 10, 20> c2; // -> 8*8 -> max2d -> 4*4
 
     //      IN OUT
-    Linear<320, 50> fc1;  // 
+    Linear<320, 50> fc1;
     Linear<50, 10> fc2;
 
     void learn(float lr)
