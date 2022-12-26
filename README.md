@@ -26,11 +26,13 @@ AWESOME [C++ implementation of OpenAI's Whisper speech/translation model](https:
    * Tools must do things you will be personally be impressed by
  * Not skimp over the details, how does it ACTUALLY work
  * Make reading the tool's source code a good learning experience
- * However, also not confuse you with weird historical words
+   * More important that code is readable than that it is as fast as possible
+   * Also be fast enough that it is "doable" though
  * Cover all the techniques that form the backbone of modern DL successes
  * Use language and terms that are compatible with modern day usage
    * So you can also understand PyTorch tutorials
- * Provide modules that mirror functionality in PyTorch
+   * However, also not confuse you with weird historical words
+ * Provide modules that mirror popular functionality in PyTorch
 
 Non-goals:
 
@@ -130,3 +132,5 @@ http://yann.lecun.com/exdb/mnist/
 # Inspiration
 https://github.com/fastai/fastbook/blob/master/04_mnist_basics.ipynb
 
+Also really good:
+https://pytorch.org/tutorials/beginner/nn_tutorial.html
