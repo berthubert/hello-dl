@@ -7,9 +7,16 @@
 #include <algorithm>
 #include <math.h>
 #include <unordered_set>
+#include "fvector.hh"
+
 extern std::ofstream g_tree;
 
 constexpr bool doLog{false};
+
+inline float maxFunc(float a, float b)
+{
+  return std::max(a,b);
+}
 
 struct SquareFunc
 {
@@ -39,6 +46,19 @@ struct ReluFunc
     else
       return 1;
   }
+
+  static fvector<8> func(const fvector<8>& in)
+  {
+    fvector<8> cmp=0;
+    return (cmp < in) * in;
+  }
+  static fvector<8> deriv(const fvector<8>& in)
+  {
+    fvector<8> cmp=0;
+    return (cmp < in) * 1.0;
+  }
+
+  
   static std::string getName() { return "relu"; }
 };
 
@@ -74,6 +94,16 @@ struct ExpFunc
       return 0;
   }
 
+  static fvector<8> func(const fvector<8>& in)
+  {
+    return exp(in);
+  }
+  static fvector<8> deriv(const fvector<8>& in)
+  {
+    return exp(in);
+  }
+
+  
   static std::string getName() { return "exp"; }
 };
 
@@ -92,6 +122,15 @@ struct LogFunc
     return 1/in;
   }
 
+  static fvector<8> func(const fvector<8>& in)
+  {
+    return log(in);
+  }
+  static fvector<8> deriv(const fvector<8>& in)
+  {
+    return 1.0/in;
+  }
+  
   static std::string getName() { return "log"; }
 };
 
@@ -145,7 +184,7 @@ struct TrackedNumberImp
     }
     else if(d_mode == Modes::Max) {
       T l = d_lhs->getVal(), r=d_rhs->getVal();
-      d_val = std::max(l, r);
+      d_val = maxFunc(l, r);
     }
     else
       abort();
@@ -258,12 +297,18 @@ struct TrackedNumberImp
       if(g_tree) g_tree<<'"'<<(void*)this<< "\" [label=\""<<"max\"]\n";
       if(g_tree) g_tree<<'"'<<(void*)this<< "\" -> \""<<(void*)d_lhs.get()<<"\"\n";
 
+      /* // this used to be:
       if(d_lhs->d_val < d_rhs->d_val)
-        d_rhs->d_grad+= d_grad;
+        d_rhs->d_grad += d_grad;
       else
-        d_lhs->d_grad+= d_grad;
+        d_lhs->d_grad += d_grad;
+      */
+      auto delta = d_lhs->d_val < d_rhs->d_val;
+      d_rhs->d_grad += delta * d_grad;
+      
+      delta = !delta;
+      d_lhs->d_grad += delta * d_grad;
     }
-
     else
       abort();
   }

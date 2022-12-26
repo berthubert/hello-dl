@@ -40,12 +40,32 @@ struct SArray
       v/=val;
     return *this;
   }
+
   auto operator*=(float val)
   {
     for(auto& v : d_store)
       v*=val;
     return *this;
-  }  
+  }
+
+  auto operator*(float val) const
+  {
+    auto ret = *this;
+    for(auto& v : ret.d_store)
+      v *= val;
+    return ret;
+  }
+
+  
+  // if we carry a vector type for SSE2/AVX etc, this will add up all the elements per element
+  auto unparallel() const 
+  {
+    SArray<float, ROWS, COLS> ret;
+    for(size_t pos = 0 ; pos < ret.d_store.size(); ++pos) {
+      ret.d_store[pos] = d_store[pos].sum();
+    }
+    return ret;
+  }
 };
 
 
@@ -96,6 +116,18 @@ struct NNArray
 
     return *this;
   }
+
+  //  auto& operator-=(const SArray<float, ROWS, COLS>& rhs)
+  auto& decrUnparallel(const SArray<float, ROWS, COLS>& rhs)
+  {
+    // this changes the contents of weights to a new numerical value, based on the old one
+    // by doing it like this, tracking is retained
+    for(size_t pos = 0 ; pos < d_store.size(); ++pos)
+      d_store[pos] = d_store[pos].getVal() - rhs.d_store[pos];
+
+    return *this;
+  }
+
   
   void randomize(T fact=1.0)
   {
@@ -208,6 +240,15 @@ struct NNArray
     diffsum /= d_store.size();
     ret.second = sqrt( (diff2sum - diffsum) / (d_store.size() -1));
     return ret; 
+  }
+
+  auto getUnparallel(unsigned int idx)
+  {
+    NNArray<float, ROWS, COLS> ret;
+    for(unsigned int i = 0 ; i < ret.d_store.size(); ++i) {
+      ret.d_store[i] = d_store[i].getVal().a.at(idx);
+    }
+    return ret;
   }
   
   // goes down a column to find the row with the x-est value

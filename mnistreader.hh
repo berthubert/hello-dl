@@ -3,6 +3,7 @@
 #include <vector>
 #include <unordered_map>
 #include "array.hh"
+#include "fvector.hh"
 
 class MNISTReader
 {
@@ -28,6 +29,19 @@ public:
       for(int col=0 ; col < 28; ++col)
         dest(row, col) = src.at(row+28*col);
   }
+
+  template<typename UT>
+  void pushImage(int n, NNArray<UT, 28, 28>& dest, int idx) const
+  {
+    const auto& src = getImageFloat(n);
+    for(int row=0 ; row < 28; ++row)
+      for(int col=0 ; col < 28; ++col) {
+        if(!dest(row,col).impl) // XXX FUGLY
+          dest(row, col) = 0;
+        dest(row, col).impl->d_val.a[idx] = src.at(row+28*col);
+      }
+  }
+
   
   char getLabel(int n) const;
 private:
