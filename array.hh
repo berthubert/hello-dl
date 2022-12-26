@@ -10,6 +10,13 @@ struct SArray
   {
     d_store.resize(ROWS*COLS);
   }
+
+  void setZero()
+  {
+    for(auto& v : d_store)
+      v = 0;
+  }
+  
   std::vector<T> d_store;
   T& operator()(int x, int y)
   {
@@ -142,7 +149,7 @@ struct NNArray
   auto logSoftMax() 
   {
     NNArray<T, ROWS, COLS> ret;
-    TrackedNumber<T> sum=0;
+    TrackedNumber<T> sum = T(0.0);
 
     TrackedNumber<T> lemax=d_store.at(0);
     for(size_t pos = 1; pos < d_store.size(); ++pos)
@@ -282,18 +289,22 @@ struct NNArray
   }
 
   template<unsigned int KERNEL>
-  NNArray<T, ROWS/KERNEL, COLS/KERNEL>
-  Max2d()
+  
+  auto Max2d()
   {
-    NNArray<T, ROWS/KERNEL, ROWS/KERNEL> ret;
+    // this is for padding..
+    NNArray<T, (ROWS+KERNEL-1)/KERNEL, (COLS+KERNEL-1)/KERNEL> ret;
     NNArray<T, KERNEL, KERNEL> kernel;
 
-    for(unsigned int r=0; r < ROWS/KERNEL; ++r) {
-      for(unsigned int c=0; c < COLS/KERNEL; ++c) {
+    for(unsigned int r=0; r < (ROWS+KERNEL-1)/KERNEL; ++r) {
+      for(unsigned int c=0; c < (COLS+KERNEL-1)/KERNEL; ++c) {
+        // this will not require padding, is leftmost element
         TrackedNumber<T> max = (*this)(r*KERNEL, c*KERNEL);
         for(unsigned int kr=0; kr < KERNEL; ++kr) {
-          for(unsigned int kc=0; kc < KERNEL; ++kc) { 
-            max = makeMax(max, (*this)(r*KERNEL+kr,c*KERNEL+kc));
+          for(unsigned int kc=0; kc < KERNEL; ++kc) {
+            if(r*KERNEL + kr < ROWS && c*KERNEL +kc < COLS)
+              max = makeMax(max, (*this)(r*KERNEL+kr,c*KERNEL+kc));
+            // "do nothing" if we are beyond the edge of the input
           }
         }
         ret(r,c) = max;
