@@ -114,7 +114,7 @@ struct TrackedNumberImp
   explicit TrackedNumberImp(T v) : d_val(v), d_mode(Modes::Parameter)
   {
     d_grad = v; // get the dimensions right for matrix
-    setZero(d_grad);
+    d_grad = 0.0; 
     s_count++;
   }
 
@@ -155,7 +155,7 @@ struct TrackedNumberImp
 
   void zeroGrad()
   {
-    setZero(d_grad);
+    d_grad = 0.0;
     d_haveval=false;
   }
   
@@ -164,10 +164,6 @@ struct TrackedNumberImp
     return d_grad;
   }
 
-  float transpose(float v)
-  {
-    return v;
-  }
   // this function is key to the magic
   void build_topo(std::unordered_set<TrackedNumberImp<T>*>& visited, std::vector<TrackedNumberImp<T>*>& topo)
   {
@@ -212,14 +208,14 @@ struct TrackedNumberImp
       if(g_tree) g_tree<<'"'<<(void*)this<< "\" -> \""<<(void*)d_rhs.get()<<"\"\n";
 
       if(doLog) std::cout<<"Mult lhs grad: \n"<<d_lhs->d_grad<<std::endl;
-      T tposed = transpose(d_rhs->d_val);
+      T tposed = d_rhs->d_val; // this used to say "transpose"
 
       if(doLog) std::cout<<"Our grad:\n";
       if(doLog) std::cout<<d_grad<<std::endl;
 
       if(doLog) std::cout<<"Mult rhs grad: \n"<<d_rhs->d_grad<<std::endl;
       
-      T tposed2 = transpose(d_lhs->d_val);
+      T tposed2 = d_lhs->d_val; // this used to say "transpose"
       
       if(doLog) std::cout<<"Going to left, delivering "<< (d_grad * tposed )<<std::endl;
 
@@ -234,14 +230,14 @@ struct TrackedNumberImp
       if(g_tree) g_tree<<'"'<<(void*)this<< "\" -> \""<<(void*)d_rhs.get()<<"\"\n";
 
       if(doLog) std::cout<<"Div lhs grad: \n"<<d_lhs->d_grad<<std::endl;
-      T tposed = transpose(d_rhs->d_val);
+      T tposed = d_rhs->d_val; // this used to say transpose
 
       if(doLog) std::cout<<"Our grad:\n";
       if(doLog) std::cout<<d_grad<<std::endl;
 
       if(doLog) std::cout<<"Div rhs grad: \n"<<d_rhs->d_grad<<std::endl;
       
-      T tposed2 = transpose(d_lhs->d_val);
+      T tposed2 = d_lhs->d_val; // this used to say transpose
       
       if(doLog) std::cout<<"Going to left, delivering "<< ( d_grad/tposed )<<std::endl;
 
@@ -287,7 +283,7 @@ struct TrackedNumberImp
   std::shared_ptr<TrackedNumberImp> d_lhs, d_rhs;  
   mutable T d_val; // 4
   T d_grad{0}; // 4
-  typedef float(*func_t)(const float&);
+  typedef T(*func_t)(const T&);
   func_t d_func, d_deriv;
   //  std::string d_funcname;
 
@@ -328,7 +324,6 @@ struct TrackedNumber
       (*iter)->zeroGrad();
     }
   }
-
   
   TrackedNumber& operator=(T val)
   {
@@ -342,10 +337,6 @@ struct TrackedNumber
       impl->d_val = val;
     }
     return *this;
-  }
-  void setOne(float& mul)
-  {
-    mul=1;
   }
 
   std::vector<TrackedNumberImp<T>* > getTopo()
@@ -372,7 +363,7 @@ struct TrackedNumber
       (*iter)->doGrad();
     }
   }
-  
+
   std::shared_ptr<TrackedNumberImp<T>> impl;
 };
 
@@ -385,7 +376,7 @@ TrackedNumber<T> operator+(const TrackedNumber<T>& lhs, const TrackedNumber<T>& 
   ret.impl->d_lhs = lhs.impl;
   ret.impl->d_rhs = rhs.impl;
   //  ret.impl->d_grad = lhs.getVal(); // dimensions
-  TrackedNumberImp<T>::setZero(ret.impl->d_grad);
+  ret.impl->d_grad = 0;
   return ret;
 }
 
