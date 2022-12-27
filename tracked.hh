@@ -66,12 +66,12 @@ struct SigmoidFunc
 {
   static float func(const float& in)
   {
-    return 1.0/ (1.0 +exp(-in));
+    return 1.0F / (1.0F + expf(-in));
   }
   static float deriv(const float& in)
   {
-    float sigma = 1.0/ (1.0 +exp(-in));
-    return sigma*(1-sigma);
+    float sigma = 1.0F / (1.0F + expf(-in));
+    return sigma * (1.0F - sigma);
   }
 
   static std::string getName() { return "sigmoid"; }
@@ -81,17 +81,17 @@ struct ExpFunc
 {
   static float func(const float& in)
   {
-    if(in<80)
-      return exp(in);
+    if (in < 80.0F)
+      return expf(in);
     else
-      return exp(80);
+      return expf(80.0F);
   }
   static float deriv(const float& in)
   {
-    if(in<87)
-      return exp(in); // easy
+    if (in < 87.0F)
+      return expf(in); // easy
     else
-      return 0;
+      return 0.0F;
   }
 
   static fvector<8> func(const fvector<8>& in)
@@ -111,15 +111,15 @@ struct LogFunc
 {
   static float func(const float& in)
   {
-    if(in == 0.0)
-      return -80;
-    return log(in);
+    if (in == 0.0F)
+      return -80.0F;
+    return logf(in);
   }
   static float deriv(const float& in)
   {
-    if(in==0.0)
-      return 80;
-    return 1/in;
+    if (in == 0.0F)
+      return 80.0F;
+    return 1.0F / in;
   }
 
   static fvector<8> func(const fvector<8>& in)
