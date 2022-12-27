@@ -139,7 +139,7 @@ auto exp(const fvector<W>& v)
 {
   fvector<W> ret;
   for(size_t i = 0; i < W ; ++i) {
-    ret.a[i] = exp(v.a[i]);
+    ret.a[i] = expf(v.a[i]);
   }
   return ret;
 }
@@ -149,7 +149,7 @@ auto log(const fvector<W>& v)
 {
   fvector<W> ret;
   for(size_t i = 0; i < W ; ++i) {
-    ret.a[i] = log(v.a[i]);
+    ret.a[i] = logf(v.a[i]);
   }
   return ret;
 }
