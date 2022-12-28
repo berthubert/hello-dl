@@ -152,7 +152,6 @@ struct TrackedNumberImp
   }
   explicit TrackedNumberImp(T v) : d_val(v), d_mode(Modes::Parameter)
   {
-    d_grad = v; // get the dimensions right for matrix
     d_grad = 0.0; 
     s_count++;
   }
@@ -239,7 +238,7 @@ struct TrackedNumberImp
       d_lhs->d_grad += d_grad;
       if(doLog) std::cout<<"Addition going right, delivering "<< (d_grad) <<std::endl;
 
-      d_rhs->d_grad+=d_grad;
+      d_rhs->d_grad += d_grad;
     }
     else if(d_mode == Modes::Mult) {
       if(g_tree) g_tree<<'"'<<(void*)this<< "\" [label=\""<<d_val<<"\\n*\"]\n";
@@ -286,14 +285,18 @@ struct TrackedNumberImp
       d_rhs->d_grad+=(-d_grad*tposed2/(tposed*tposed));
     }
     else if(d_mode == Modes::Func) {
-      if(doLog) std::cout<<"Function... "<<std::endl;
+      if(doLog) std::cout<<"Function, delivering "<< (d_grad  * d_deriv(d_lhs->d_val)) << std::endl;
+      if(doLog) std::cout<<"Function, our grad "<<d_grad << std::endl;
+      if(doLog) std::cout<<"Function, our val "<<d_val << std::endl;
+      if(doLog) std::cout<<"Function, our val "<<(void*)d_deriv << std::endl;
+      
       if(g_tree) g_tree<<'"'<<(void*)this<< "\" [label=\""<<"func\"]\n";
       if(g_tree) g_tree<<'"'<<(void*)this<< "\" -> \""<<(void*)d_lhs.get()<<"\"\n";
 
       d_lhs->d_grad+=(d_grad*d_deriv(d_lhs->d_val));
     }
     else if(d_mode == Modes::Max) {
-      if(doLog) std::cout<<"Max... "<<std::endl;
+      if(doLog) std::cout<<"Max... our grad " << d_grad <<std::endl;
       if(g_tree) g_tree<<'"'<<(void*)this<< "\" [label=\""<<"max\"]\n";
       if(g_tree) g_tree<<'"'<<(void*)this<< "\" -> \""<<(void*)d_lhs.get()<<"\"\n";
 
@@ -421,7 +424,7 @@ TrackedNumber<T> operator+(const TrackedNumber<T>& lhs, const TrackedNumber<T>& 
   ret.impl->d_lhs = lhs.impl;
   ret.impl->d_rhs = rhs.impl;
   //  ret.impl->d_grad = lhs.getVal(); // dimensions
-  ret.impl->d_grad = 0;
+  ret.impl->d_grad = 0.0;
   return ret;
 }
 
@@ -441,6 +444,7 @@ TrackedNumber<T> operator*(const TrackedNumber<T>& lhs, const TrackedNumber<T>& 
   ret.impl->d_lhs = lhs.impl;
   assert(rhs.impl != 0);
   ret.impl->d_rhs = rhs.impl;
+  ret.impl->d_grad = 0.0;
   //  ret.impl->d_grad = lhs.getVal() * rhs.getVal(); // get dimensions right
   // ret.impl->d_grad.setConstant(1);  // XXX maybe should come back
   return ret;
