@@ -51,7 +51,10 @@ Despite doing some neural network experiments in the 1990s, I'm extremely new to
  * The PyTorch project, their documentation and samples are invaluable
  * Facebook's [Flashlight](https://github.com/flashlight/flashlight), a fast, flexible machine learning library written entirely in C++ from the Facebook AI Research and the creators of Torch, TensorFlow, Eigen and Deep Speech. Their source code helped me understand lots of things.
  * [Andrej Karpathy](https://twitter.com/karpathy)'s [micrograd](https://github.com/karpathy/micrograd) Python autogradient implementation is a tiny work of art
+ * Andrej Karpathy's post [The Unreasonable Effectiveness of Recurrent Neural Networks](https://karpathy.github.io/2015/05/21/rnn-effectiveness/), and also [this post](https://karpathy.github.io/2019/04/25/recipe/)
  * [FastAI](https://fast.ai)'s Jupyter notebooks.
+ 
+<!-- https://medium.com/geekculture/a-2021-guide-to-improving-cnns-optimizers-adam-vs-sgd-495848ac6008 --> 
  
 # Status
 So far this implements a small but pretty nice autograd system. In
