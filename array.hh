@@ -41,6 +41,15 @@ struct SArray
     return *this;
   }
 
+  auto operator/(float val) const
+  {
+    SArray<T, ROWS, COLS> ret = *this;
+    for(auto& v : ret.d_store)
+      v/=val;
+    return ret;
+  }
+
+  
   auto operator*=(float val)
   {
     for(auto& v : d_store)
@@ -98,6 +107,10 @@ struct NNArray
     return ROWS;
   }
 
+  auto size() const
+  {
+    return ROWS * COLS;
+  }
   auto getGrad() const
   {
     SArray<T, ROWS, COLS> ret;
@@ -107,6 +120,26 @@ struct NNArray
     return ret;
   }
 
+  void addGrad(const SArray<T, ROWS, COLS>& rhs) 
+  {
+    for(size_t pos = 0 ; pos < d_store.size(); ++pos)
+      d_store[pos].impl->d_grad += rhs.d_store[pos];
+  }
+
+  void setGrad(const SArray<T, ROWS, COLS>& rhs) 
+  {
+    for(size_t pos = 0 ; pos < d_store.size(); ++pos)
+      d_store[pos].impl->d_grad = rhs.d_store[pos];
+  }
+
+  void setGradCons(const SArray<T, ROWS, COLS>& rhs) 
+  {
+    for(size_t pos = 0 ; pos < d_store.size(); ++pos)
+      d_store[pos].impl->d_grad = rhs.d_store[pos].sum();
+  }
+
+  
+  
   auto& operator-=(const SArray<T, ROWS, COLS>& rhs)
   {
     // this changes the contents of weights to a new numerical value, based on the old one
@@ -357,6 +390,15 @@ struct NNArray
     return ret;
   }
 
+  static float extr(float in) 
+  {
+    return in;
+  }
+  static float extr(const fvector<8>& in) 
+  {
+    return in.a[0];
+  }
+  
   void save(std::ostream& out) const
   {
     float rows=ROWS, cols=COLS;
@@ -366,7 +408,7 @@ struct NNArray
     swrite(rows);
     swrite(cols);
     for(const auto& v : d_store)
-      swrite(v.getVal());
+      swrite(extr(v.getVal()));
   }
 
   void load(std::istream& in)
