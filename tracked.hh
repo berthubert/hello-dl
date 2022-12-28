@@ -392,6 +392,7 @@ struct TrackedNumber
     std::vector<TrackedNumberImp<T>* > topo;
     std::unordered_set<TrackedNumberImp<T>* > visited;
     impl->build_topo(visited, topo);
+    topo.shrink_to_fit();
     return topo;
   }
   
