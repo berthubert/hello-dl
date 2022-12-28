@@ -14,11 +14,15 @@ union fvector
   {
     *this = v0;
   }
+
+  // be VERY careful, fvector<8>{0.0} will call this
   fvector(const std::initializer_list<float>& in)
   {
     unsigned int ctr=0;
     for(const auto& val: in)
       a[ctr++] = val;
+    for(; ctr < W; ++ctr)
+      a[ctr] = 0.0;
   }
 
   fvector& operator=(float val)
