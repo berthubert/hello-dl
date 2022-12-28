@@ -21,10 +21,9 @@ public:
     randomize();
   }
 
-  std::vector<int> getBatch(int n)
+  auto getBatch(int n)
   {
-    std::vector<int> ret;
-    ret.reserve(n);
+    std::deque<int> ret;
     for(int i = 0 ; !d_store.empty() && i < n; ++i) {
       ret.push_back(d_store.front());
       d_store.pop_front();

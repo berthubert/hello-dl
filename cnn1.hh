@@ -42,12 +42,12 @@ struct CNNModel {
   struct State
   {
     //      R   C   K IN  OUTLAYERS
-    Conv2d<28, 28, 5, 1,  10> c1; // -> 24*24 -> max2d -> 12*12
-    Conv2d<12, 12, 5, 10, 20> c2; // -> 8*8 -> max2d -> 4*4
+    Conv2d<float, 28, 28, 5, 1,  10> c1; // -> 24*24 -> max2d -> 12*12
+    Conv2d<float, 12, 12, 5, 10, 20> c2; // -> 8*8 -> max2d -> 4*4
 
     //      IN OUT
-    Linear<320, 50> fc1;
-    Linear<50, 10> fc2;
+    Linear<float, 320, 50> fc1;
+    Linear<float, 50, 10> fc2;
 
     void learn(float lr)
     {

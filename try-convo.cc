@@ -16,13 +16,14 @@ int main(int argc, char** argv)
     cerr<<"Syntax: try-convo model-file index"<<endl;
     return 0;
   }
-    
-  cout<<"Start!"<<endl;
+
   feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW );
 
-  MNISTReader mntest("gzip/emnist-digits-test-images-idx3-ubyte.gz", "gzip/emnist-digits-test-labels-idx1-ubyte.gz");
+  // MNISTReader mntest("gzip/emnist-digits-test-images-idx3-ubyte.gz", "gzip/emnist-digits-test-labels-idx1-ubyte.gz");
+  MNISTReader mntest("gzip/emnist-letters-test-images-idx3-ubyte.gz", "gzip/emnist-letters-test-labels-idx1-ubyte.gz");
 
-  cout<<"Have "<<mntest.num()<<" images"<<endl;
+
+  cout<<"Have "<<mntest.num()<<" validation images"<<endl;
 
   CNNModel m;
   CNNModel::State s;

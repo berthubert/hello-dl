@@ -11,6 +11,10 @@
 
 #include <fenv.h>
 #include "cnn1.hh"
+#include "cnn-alphabet.hh"
+
+using TheModel = CNNAlphabetModel<float>;
+
 using namespace std;
 
 ofstream g_tree; //("tree.part");
@@ -35,7 +39,7 @@ void scoreModel(S& s, const MNISTReader& mntest, int batchno)
   double totalLoss=0;
   for(auto i : batch) {
     cout<<".";    cout.flush();
-    int label = mntest.getLabel(i);
+    int label = mntest.getLabel(i) - 1;
 
     mntest.pushImage(i, model.img);
     model.expected.zero();
@@ -64,12 +68,13 @@ int main(int argc, char** argv)
   cout<<"Start!"<<endl;
   feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW );
 
-  MNISTReader mn("gzip/emnist-digits-train-images-idx3-ubyte.gz", "gzip/emnist-digits-train-labels-idx1-ubyte.gz");
+  string kind = "letters"; // or digits
+  MNISTReader mn("gzip/emnist-"+kind+"-train-images-idx3-ubyte.gz", "gzip/emnist-"+kind+"-train-labels-idx1-ubyte.gz");
   cout<<"Have "<<mn.num()<<" images"<<endl;
 
-  MNISTReader mntest("gzip/emnist-digits-test-images-idx3-ubyte.gz", "gzip/emnist-digits-test-labels-idx1-ubyte.gz");
+  MNISTReader mntest("gzip/emnist-"+kind+"-test-images-idx3-ubyte.gz", "gzip/emnist-"+kind+"-test-labels-idx1-ubyte.gz");
 
-  CNNModel::State s;
+  TheModel::State s;
 
   if(argc > 1) {
     cout<<"Loading model state from "<<argv[1]<<endl;
@@ -79,9 +84,9 @@ int main(int argc, char** argv)
   cout<<"Configuring network";
   cout.flush();
 
-  vector<CNNModel> models;  
-  for(int n=0; n < 64; ++n) {
-    CNNModel rm;
+  vector<TheModel> models;  
+  for(int n=0; n < 22; ++n) {
+    TheModel rm;
     rm.init(s);
     models.push_back(rm);
     cout<<".";
@@ -108,17 +113,17 @@ int main(int argc, char** argv)
     
     for(int tries=0;;++tries) {
       if(!(tries %32))
-        scoreModel<CNNModel, CNNModel::State>(s, mntest, batchno);
+        scoreModel<TheModel, TheModel::State>(s, mntest, batchno);
       
       auto batch = batcher.getBatch(models.size());
       if(batch.size() != models.size())
         break;
       for(size_t i = 0; i < batch.size(); ++i) {
-        CNNModel& m = models.at(i);
+        TheModel& m = models.at(i);
 
         auto idx = batch.at(i);
         mn.pushImage(idx, m.img);
-        m.label = mn.getLabel(idx);
+        m.label = mn.getLabel(idx) -1;
         
         m.expected.zero();
         m.expected(0,m.label) = 1; // "one hot vector"
@@ -162,5 +167,5 @@ int main(int argc, char** argv)
     }
 
   }
-  scoreModel<CNNModel>(s, mntest, batchno);
+  scoreModel<TheModel>(s, mntest, batchno);
 }

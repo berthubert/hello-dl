@@ -38,6 +38,18 @@ add_executable(modular-convo modular-convo.cc mnistreader.cc)
 target_link_libraries(modular-convo
   z
 )
+
+add_executable(modular-linear-convo modular-linear-convo.cc mnistreader.cc)
+target_link_libraries(modular-linear-convo
+  z
+)
+
+add_executable(modular-threaded-convo modular-threaded-convo.cc mnistreader.cc)
+target_link_libraries(modular-threaded-convo
+  z
+)
+
+
 add_executable(try-convo try-convo.cc mnistreader.cc)
 target_link_libraries(try-convo
   z
