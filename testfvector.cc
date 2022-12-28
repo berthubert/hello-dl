@@ -131,3 +131,14 @@ TEST_CASE("tracked log test") {
   
 }
 
+TEST_CASE("assignment test") {
+  fvector<8> a({1,2,3});
+  CHECK(a.a[0]==1);
+  CHECK(a.a[2]==3);
+  CHECK(a.a[3]==0);
+  a=1.0;
+  a=fvector<8>({0});
+  CHECK(a.a[5]==0.0);
+}
+  
+  
