@@ -86,7 +86,8 @@ struct NNArray
     d_store.resize(ROWS*COLS);
   }
   std::vector<TrackedNumber<T>> d_store;
-
+  typedef NNArray<T, ROWS, COLS> us_t;
+  typedef SArray<T, ROWS, COLS> sus_t; // very
   TrackedNumber<T>& operator()(int x, int y)
   {
     return d_store.at(x*COLS + y);
@@ -138,7 +139,15 @@ struct NNArray
       d_store[pos].impl->d_grad = rhs.d_store[pos].sum();
   }
 
-  
+  // hadamard
+  auto dot(const us_t& rhs)
+  {
+    us_t ret;
+    for(size_t pos = 0 ; pos < d_store.size(); ++pos) {
+      ret.d_store[pos] = d_store[pos] * rhs.d_store[pos];
+    }
+    return ret;
+  }
   
   auto& operator-=(const SArray<T, ROWS, COLS>& rhs)
   {

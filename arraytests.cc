@@ -308,6 +308,34 @@ TEST_CASE("cross entropy") {
   CHECK(loss.getVal() < oldloss);
 }
 
+TEST_CASE("array dot hadamard test")
+{
+  NNArray<float, 2, 2> a;
+  a(0,0)=1;   a(0,1)=2; 
+  a(1,0)=3;   a(1,1)=4; 
+
+  NNArray<float, 2, 2> b;
+  b(0,0)=4;   b(0,1)=3; 
+  b(1,0)=1;   b(1,1)=2;
+
+  NNArray<float, 2, 2> res = a.dot(b);
+  CHECK(res(0,0).getVal() == 4);
+  CHECK(res(0,1).getVal() == 6);
+  CHECK(res(1,0).getVal() == 3);
+  CHECK(res(1,1).getVal() == 8);
+
+  NNArray<float, 2, 2> res2 = b.dot(a);
+  CHECK(res2(0,0).getVal() == 4);
+  CHECK(res2(0,1).getVal() == 6);
+  CHECK(res2(1,0).getVal() == 3);
+  CHECK(res2(1,1).getVal() == 8);
+
+  auto sum = res2.sum();
+  sum.backward();
+  CHECK(a(0,0).getGrad() == 4.0);
+  CHECK(b(0,1).getGrad() == 2.0);
+}
+
 TEST_CASE("Saving and restoring arrays")
 {
   ostringstream str;
