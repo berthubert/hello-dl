@@ -330,7 +330,7 @@ struct TrackedNumberImp
   };
   std::shared_ptr<TrackedNumberImp> d_lhs, d_rhs;  
   mutable T d_val; // 4
-  T d_grad{0}; // 4
+  T d_grad = 0.0; // 4
   typedef T(*func_t)(const T&);
   func_t d_func, d_deriv;
   //  std::string d_funcname;
