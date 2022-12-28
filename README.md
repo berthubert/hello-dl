@@ -55,6 +55,8 @@ Despite doing some neural network experiments in the 1990s, I'm extremely new to
  * [FastAI](https://fast.ai)'s Jupyter notebooks.
  
 <!-- https://medium.com/geekculture/a-2021-guide-to-improving-cnns-optimizers-adam-vs-sgd-495848ac6008 --> 
+<!-- GRU https://blog.floydhub.com/gru-with-pytorch/ -->
+<!-- GRU paper https://arxiv.org/pdf/1406.1078.pdf -->
  
 # Status
 So far this implements a small but pretty nice autograd system. In
