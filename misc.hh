@@ -2,6 +2,7 @@
 #include <deque>
 #include <vector>
 #include <chrono>
+#include <mutex>
 
 class Batcher
 {
@@ -30,8 +31,21 @@ public:
     }
     return ret;
   }
+
+  auto getBatchLocked(int n)
+  {
+    std::deque<int> ret;
+    std::lock_guard<std::mutex> l(d_mut);
+    for(int i = 0 ; !d_store.empty() && i < n; ++i) {
+      ret.push_back(d_store.front());
+      d_store.pop_front();
+    }
+    return ret;
+  }
+
 private:
   std::deque<int> d_store;
+  std::mutex d_mut;
   void randomize()
   {
     std::random_device rd;
