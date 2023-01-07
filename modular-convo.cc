@@ -118,27 +118,29 @@ int main(int argc, char** argv)
       auto batch = batcher.getBatch(models.size());
       if(batch.size() != models.size())
         break;
+      vector<int> labels(batch.size());
       for(size_t i = 0; i < batch.size(); ++i) {
         TheModel& m = models.at(i);
 
         auto idx = batch.at(i);
         mn.pushImage(idx, m.img);
-        m.label = mn.getLabel(idx) -1;
+        labels[i] = mn.getLabel(idx) -1;
         
         m.expected.zero();
-        m.expected(0,m.label) = 1; // "one hot vector"
+        m.expected(0,labels[i]) = 1; // "one hot vector"
       }
     
       cout<<"Average loss: ";
       cout.flush();
       cout<<totalLoss.getVal() <<". ";
       int corrects=0, wrongs=0;
-      
+
+      unsigned int pos=0;
       for(auto& m : models) {
         int predicted = m.scores.maxValueIndexOfColumn(0);        
         if(corrects + wrongs == 0) {
-          cout<<"Predicted: "<<predicted<<", actual: "<<m.label<<": ";
-          if(predicted == m.label)
+          cout<<"Predicted: "<<predicted<<", actual: "<<labels[pos]<<": ";
+          if(predicted == labels[pos])
             cout<<"We got it right!"<<endl;
           else
             cout<<"More learning to do.."<<endl;
@@ -146,9 +148,10 @@ int main(int argc, char** argv)
           printImg(m.img);
         }
 
-        if(predicted == m.label)
+        if(predicted == labels[pos])
           corrects++;
         else wrongs++;
+        pos++;
       }
       double perc = 100.0*corrects/(corrects+wrongs);
       cout<<"Percent batch correct: "<<perc<<"%"<<endl;

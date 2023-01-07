@@ -1,6 +1,4 @@
 #pragma once
-#include "tracked.hh"
-#include "layers.hh"
 #include "model.hh"
 #include <sstream>
 /*
@@ -12,7 +10,6 @@ template<typename T>
 struct CNNAlphabetModel  {
   NNArray<T, 28, 28> img;
 
-  T label;
   NNArray<T, 26, 1> scores;
   NNArray<T, 1, 26> expected;
 
@@ -56,11 +53,42 @@ struct CNNAlphabetModel  {
       fc2.setGrad(rhs.fc2, divisor);
       fc3.setGrad(rhs.fc3, divisor);
     }
+    
+    template<typename W>
+    void makeProj(const W& w)
+    {
+      fc1.makeProj(w);
+      fc2.makeProj(w);
+      fc3.makeProj(w);
+      c1.makeProj(w);
+      c2.makeProj(w);
+    }
+
+    template<typename W>
+    void projForward(W& w) const
+    {
+      fc1.projForward(w);
+      fc2.projForward(w);
+      fc3.projForward(w);
+      c1.projForward(w);
+      c2.projForward(w);
+    }
+    template<typename W>
+    void projBackGrad(const W& w) 
+    {
+      fc1.projBackGrad(w);
+      fc2.projBackGrad(w);
+      fc3.projBackGrad(w);
+      c1.projBackGrad(w);
+      c2.projBackGrad(w);
+    }
+
   };
   
   void init(State& s)
   {
     img.zero();
+    img.setVariable();
                       
     auto step1 = s.c1.forward(img);
     
@@ -95,4 +123,5 @@ struct CNNAlphabetModel  {
     expected.zero();
     loss = TrackedNumber<T>(0.0) - (expected*scores)(0,0);
   }
+
 };

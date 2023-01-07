@@ -7,128 +7,233 @@
 #include "fvector.hh"
 #include <iostream>
 #include <array>
+#include "gru.hh"
+#include "textsupport.hh"
 
-
-std::ofstream g_tree("./tree.part");
+std::ofstream g_tree;//("./tree.part");
 #include "tracked.hh"
+#include "misc.hh"
 
 #include <initializer_list>
 using namespace std;
 
-struct Test
+template<typename T>
+struct GRUModel
 {
-  Test(const float& val) : d_val(val)
+  struct State
   {
-    cout<<"Float constructor\n";
+    GRULayer<T, 98, 250> gm1;
+    GRULayer<T, 250, 250> gm2;
+    Linear<T, 250, 98> fc;
+    void zeroGrad()
+    {
+      gm1.zeroGrad();
+      gm2.zeroGrad();
+      fc.zeroGrad();
+    }
+    
+    void save(std::ostream& out) const
+    {
+      gm1.save(out);
+      gm2.save(out);
+      fc.save(out);
+    }
+
+    void load(std::istream& in) 
+    {
+      gm1.load(in);
+      gm2.load(in);
+      fc.load(in);
+    }
+
+    template<typename W>
+    void makeProj(const W& w)
+    {
+      gm1.makeProj(w);
+      gm2.makeProj(w);
+      fc.makeProj(w);
+    }
+
+    template<typename W>
+    void projForward(W& w) const
+    {
+      gm1.projForward(w);
+      gm2.projForward(w);
+      fc.projForward(w);
+    }
+    template<typename W>
+    void projBackGrad(const W& w) 
+    {
+      gm1.projBackGrad(w);
+      gm2.projBackGrad(w);
+      fc.projBackGrad(w);
+    }
+  };
+  vector<NNArray<T, 98, 1>> invec;
+  vector<NNArray<T, 1, 98>> expvec;
+  vector<NNArray<T, 98, 1>> scorevec;
+
+  TrackedNumber<T> totloss;
+  
+  void unroll(State& s, unsigned int choplen)
+  {
+    cout<<"Unrolling the GRU";
+    totloss = TrackedNumber<T>(0.0);
+    for(size_t i = 0 ; i < choplen; ++i) {
+      cout<<"."; cout.flush();
+      NNArray<T, 98, 1> in;
+      NNArray<T, 1, 98> expected;
+      in.zero();  
+      expected.zero(); 
+      
+      invec.push_back(in);
+      expvec.push_back(expected);
+      auto res1 = s.fc.forward(s.gm2.forward(s.gm1.forward(in)));
+      auto score = res1.logSoftMax();
+      scorevec.push_back(score);
+      auto loss = TrackedNumber<T>(0.0) - (expected*score)(0,0);
+      totloss = totloss + loss;
+    }
+    totloss = totloss/TrackedNumber<T>(choplen);
+    cout<<"\n";
   }
 
-  Test(std::initializer_list<float> vals)
-  {
-    cout<<"Initializer list contructor"<<endl;
-  }
-  float d_val;
 };
 
-int main()
+
+int main(int argc, char **argv)
 {
-  struct Test2
-  {
-    Test d_t = 0.0; // calls initializer list constructor..
-  };
-  Test2 t2;
+  BiMapper bm("corpus.txt", 98);
+  constexpr int choplen= 75;
+  vector<string> sentences=textChopper("corpus.txt", choplen, 10);
+  cout<<"Got "<<sentences.size()<<" sentences"<<endl;
+  Batcher batcher(sentences.size());
+
+  auto grum = make_unique<GRUModel<float>>();
+  GRUModel<float>::State s;
+
+  if(argc > 1) {
+    cout<<"Loading model state from "<<argv[1]<<endl;
+    loadModelState(s, argv[1]);
+  }
+  grum->unroll(s, choplen - 1);
+
+  constexpr int batchsize = 64;
+
+  cout<<"\nDoing topo.."; cout.flush();
+  auto topo = grum->totloss.getTopo();
+  cout<<" "<< topo.size() <<" entries"<<endl;
+
+  vector<std::array<unsigned int, 98>> invecprojarray, expvecprojarray, scorevecprojarray;
+  cout<<"Making float worker"<<endl;
+  for(auto& x : grum->scorevec) {
+    x.setVariable();
+  }
+  for(auto& x : grum->invec) {
+    x.setVariable();
+  }
+  for(auto& x : grum->expvec) {
+    x.setVariable();
+  }
+
+  auto w = grum->totloss.getWork<float>(topo);
+  
+  for(const auto& x : grum->scorevec) {
+    scorevecprojarray.push_back(makeProj(x, w));
+  }
+  
+  for(const auto& x : grum->invec)
+    invecprojarray.push_back(makeProj(x, w));
+  
+  for(const auto& x : grum->expvec)
+    expvecprojarray.push_back(makeProj(x, w));
+  
+  s.makeProj(w);
+  
+  cout<<"Resetting GRU"<<endl;
+  cout<<TrackedNumberImp<float>::getCount()<<" instances before clean"<<endl;
+    
+  grum.reset();
+  cout<<TrackedNumberImp<float>::getCount()<<" instances after clean"<<endl;
+    
+  vector<NNArray<fvector<8>, 98, 1>> invec(choplen);
+  vector<NNArray<fvector<8>, 1, 98>> expvec(choplen);
+  vector<NNArray<fvector<8>, 98, 1>> scorevec(choplen);
+
+  cout<<"Making AVX2 worker"<<endl;
+  auto w8 = w.convert<fvector<8>>(); 
+
+  cout<<"Starting the work"<<endl;
+
+  for(;;) { // the batch loop
+    cout<<TrackedNumberImp<float>::getCount()<<" instances"<<endl;
+    double batchloss = 0;
+    w8.zeroGrad();
+    s.zeroGrad();
+    s.projForward(w8);
+    for(unsigned int minibatchno = 0 ; minibatchno < batchsize/8; ++minibatchno) {
+      s.gm1.d_prevh.reset();
+      s.gm2.d_prevh.reset();
+
+      auto minibatch = batcher.getBatch(8);
+      if(minibatch.size() != 8)
+        goto batcherEmpty;
+
+      for(size_t pos = 0 ; pos < choplen - 1; ++pos) {
+        invec[pos].zero();
+        expvec[pos].zero();
+      }
+
+      int avxindex =0;
+      for(const auto& idx : minibatch) {
+        string input = sentences[idx];
+        std::string output;
+
+        for(size_t pos = 0 ; pos < input.size() - 1; ++pos) {
+          cout<<input.at(pos);
+          invec[pos](bm.c2i(input.at(pos)), 0).impl->d_val.v[avxindex] = 1.0;
+          expvec[pos](0, bm.c2i(input.at(pos+1))).impl->d_val.v[avxindex] = 1.0;
+        }
+        cout<<endl;
+        avxindex++;
+      }
+
+      for(unsigned int projpos = 0; projpos < scorevecprojarray.size(); ++projpos) {
+        projForward(invecprojarray[projpos], invec[projpos], w8);
+        projForward(expvecprojarray[projpos], expvec[projpos], w8);
+      }
+
+      
+      auto numloss = w8.getResult().sum()/8; // this triggers the whole calculation
+
+      for(unsigned int projpos = 0; projpos < scorevecprojarray.size(); ++projpos)
+        projBack(scorevecprojarray[projpos], w8, scorevec[projpos]);
+
+      
+      for(int t =0 ; t< 8; ++t) {
+        for(size_t pos = 0 ; pos < choplen - 1; ++pos) {
+          cout<< bm.i2c(scorevec[pos].getUnparallel(t).maxValueIndexOfColumn(0));
+        }
+        cout<<"\n";
+      }
+      batchloss += numloss;
+      cout<<"\naverage loss: "<<numloss<<endl;
+      s.projBackGrad(w8);
+    }
+    // done with all the minibatches, have a batch
+    
+
+
+    batchloss /= batchsize;
+    
+    float lr=0.01/batchsize;
+    cout<<"Average batch loss: "<<batchloss<<endl;
+    s.gm1.learn(lr);
+    s.gm2.learn(lr);
+    s.fc.learn(lr);
+    //    cout<<"\n\n";
+    saveModelState(s, "los-worker.state");
+  }
+ batcherEmpty:;
 }
 
-
-#if 0
-  typedef fvector<8> fvect;
-  TrackedNumber<fvect> x(fvect({1,2,3,4,5,6,7,8}));
-  TrackedNumber<fvect> y(fvect({5,4,3,2,1,0,0,0}));
-  TrackedNumber<fvect> mres = x*x*x + x*y;
-
-  cout<< (fvect({1,2,3,4,5,6,7,8}) < fvect({8,7,6,5,4,3,2,1})) <<endl;
-  
-  fvect n2 = mres.getVal();
-  cout<<n2<<endl;
-  mres.backward();
-  cout<<x.getGrad()<<endl;
-  // 3*x^2
-  // 3, 12, 27, 48
-  //               +y
-  // 8  16  30  50
-
-  cout<<y.getGrad()<<endl;
-  // 1  2   3  4
-  
-  fvect vsum;
-  vsum=(float)0.0;
-
-  cout<<"vsum: "<<vsum<<endl;
-
-  //  avxtest(); 
-}
-#endif
-#if 0
-  feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW );  
-
-  vector<float> a(40000000), b(40000000), res(40000000);
-  std::random_device rd{};
-  std::mt19937 gen{rd()};
-  std::normal_distribution<> d{0, 1};
-  
-  for(auto& item : a) {
-    item = d(gen);
-  }
-  for(auto& item : b) {
-    item = d(gen);
-  }
-
-  auto start = chrono::steady_clock::now();
-
-  for(size_t i = 0; i < a.size(); ++i) {
-    res[i] = a[i] < b[i] ? b[i] : a[i];
-  }
-  float sum=0;
-  
-  g_tree<<"digraph D {"<<endl;
-
-  TrackedFloat x(2.0);
-  TrackedFloat y(3.0);
-  TrackedFloat res = x + y * y; 
-  cout << res.getVal() << " ==? 11"<< endl;
-  res.backward();
-  cout << x.getGrad() << " ==? 1 "<< endl; // 1
-  cout << y.getGrad() << " ==? 6 "<<endl; // 2*y = 6
-  
-  g_tree<<"}"<<endl;
-}
-
-
-  for(size_t i = 0; i < a.size(); i += 4) {
-    vsum.v += ((fvector*)&a[i])->v;
-  }
-  cout<<"vsum: "<<vsum<<endl;
-  cout << "Sum: "<<vsum.sum()<<endl;
-  auto usec = std::chrono::duration_cast<std::chrono::microseconds>(chrono::steady_clock::now()- start).count();
-  cout << usec/1000.0 <<" msec\n";
-
-  
-  cout<<sizeof(TrackedNumberImp<float>)<<endl;
-  cout<<sizeof(std::function<float(float)>)<<endl;
-  cout<<sizeof(float(*)(float))<<endl;
-  //  malloc_info(0, stdout);
-  TrackedFloat a, b, c, d;
-  //  malloc_info(0, stdout);
-  malloc_stats();
-  a=1;
-  malloc_stats();
-  b=1;
-  malloc_stats();
-  c=1;
-  malloc_stats();
-  d=1;
-  malloc_stats();
-  //  malloc_info(0, stdout);
-  return 0;
-
-
-#endif

@@ -44,21 +44,22 @@ void scoreModel(S& s, const MNISTReader& mntest, int batchno)
   
   while(!batch.empty()) {
     mod.expected.zero();
+    fvector<8> label;
     for(int n = 0; n < 8 ; ++n) {
       auto idx = batch.front();
       batch.pop_front();
       
       mntest.pushImage(idx, mod.img, n);
-      mod.label.a[n] = mntest.getLabel(idx) - 1;  // a == 1..
+      label.v[n] = mntest.getLabel(idx) - 1;  // a == 1..
       
-      mod.expected(0, mod.label.a[n]).impl->d_val.a[n] = 1; // "one hot vector"
+      mod.expected(0, label.v[n]).impl->d_val.v[n] = 1; // "one hot vector"
     }
     
     totLoss += mod.loss.getVal();
     
     for(int n = 0; n < 8; ++n) {
       int verdict = mod.scores.getUnparallel(n).maxValueIndexOfColumn(0);
-      if(verdict == mod.label.a[n])
+      if(verdict == label.v[n])
         corrects++;
       else
         wrongs++;
@@ -145,7 +146,7 @@ int main(int argc, char** argv)
         auto work = [&batch, &mn, &totLoss, &gather, &corrects, &wrongs, &lock](ModelEnv* me) {
           for(int loops = 0 ; loops < 2; ++loops) {
             me->mod.expected.zero();
-            
+            fvector<8> label = 0;
             for(int n = 0; n < 8 ; ++n) {
               unsigned int idx;
               {
@@ -155,9 +156,9 @@ int main(int argc, char** argv)
                 batch.pop_front();  // XXX MUTEX
               }
               mn.pushImage(idx, me->mod.img, n);
-              me->mod.label.a[n] = mn.getLabel(idx) - 1;  // a == 1..
+              label.v[n] = mn.getLabel(idx) - 1;  // v == 1..
               
-              me->mod.expected(0, me->mod.label.a[n]).impl->d_val.a[n] = 1; // "one hot vector"
+              me->mod.expected(0, label.v[n]).impl->d_val.v[n] = 1; // "one hot vector"
             }
             
             auto loss = me->mod.loss.getVal();
@@ -173,16 +174,16 @@ int main(int argc, char** argv)
               int verdict = me->mod.scores.getUnparallel(n).maxValueIndexOfColumn(0);
               
               if(corrects + wrongs == 0) {
-                cout<<"Predicted: '"<< (char)('a'+verdict)<<"', actual: '"<< (char)('a'+me->mod.label.a[n]) <<"': ";
-                if(verdict == me->mod.label.a[n])
+                cout<<"Predicted: '"<< (char)('a'+verdict)<<"', actual: '"<< (char)('a'+label.v[n]) <<"': ";
+                if(verdict == label.v[n])
                   cout<<"We got it right!"<<endl;
                 else
                   cout<<"More learning to do.."<<endl;
-                cout<<"Loss: "<<me->mod.loss.getVal().a[n]<<", "<<me->mod.scores.getUnparallel(n).flatViewCol()<<endl;
+                cout<<"Loss: "<<me->mod.loss.getVal().v[n]<<", "<<me->mod.scores.getUnparallel(n).flatViewCol()<<endl;
                 printImg(me->mod.img.getUnparallel(n));
               }
               
-              if(verdict == me->mod.label.a[n])
+              if(verdict == label.v[n])
                 corrects++;
               else
                 wrongs++;

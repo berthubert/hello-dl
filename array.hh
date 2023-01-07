@@ -16,6 +16,21 @@ struct SArray
     for(auto& v : d_store)
       v = 0;
   }
+
+  auto getCols() const
+  {
+    return COLS;
+  }
+  auto getRows() const
+  {
+    return ROWS;
+  }
+
+  constexpr auto size() const
+  {
+    return ROWS * COLS;
+  }
+
   
   std::vector<T> d_store;
   T& operator()(int x, int y)
@@ -49,7 +64,6 @@ struct SArray
     return ret;
   }
 
-  
   auto operator*=(float val)
   {
     for(auto& v : d_store)
@@ -65,7 +79,10 @@ struct SArray
     return ret;
   }
 
-  
+  auto operator==(const SArray<T, ROWS, COLS>& rhs) const
+  {
+    return std::equal(d_store.cbegin(), d_store.cend(), rhs.d_store.cbegin(), rhs.d_store.cend());
+  }
   // if we carry a vector type for SSE2/AVX etc, this will add up all the elements per element
   auto unparallel() const 
   {
@@ -88,29 +105,38 @@ struct NNArray
   std::vector<TrackedNumber<T>> d_store;
   typedef NNArray<T, ROWS, COLS> us_t;
   typedef SArray<T, ROWS, COLS> sus_t; // very
+  
   TrackedNumber<T>& operator()(int x, int y)
   {
     return d_store.at(x*COLS + y);
   }
-
   
   const TrackedNumber<T>& operator()(int x, int y) const
   {
     return d_store.at(x*COLS + y);
   }
 
-  auto getCols() const
+  constexpr auto getCols() const
   {
     return COLS;
   }
-  auto getRows() const
+  constexpr auto getRows() const
   {
     return ROWS;
   }
 
-  auto size() const
+  static constexpr unsigned int SIZE = ROWS*COLS;
+  constexpr auto size() const
   {
     return ROWS * COLS;
+  }
+
+  auto getS() const
+  {
+    sus_t ret;
+    for(size_t pos = 0; pos < d_store.size(); ++pos)
+      ret.d_store[pos] = d_store[pos].getVal();
+    return ret;
   }
   auto getGrad() const
   {
@@ -136,9 +162,20 @@ struct NNArray
   void setGradCons(const SArray<T, ROWS, COLS>& rhs) 
   {
     for(size_t pos = 0 ; pos < d_store.size(); ++pos)
-      d_store[pos].impl->d_grad = rhs.d_store[pos].sum();
+      d_store[pos].impl->d_grad = rhs.d_store[pos]; //.sum();
   }
 
+  void setVariable()
+  {
+    for(auto& v : d_store)
+      v.setVariable();
+  }
+  void needsGrad()
+  {
+    for(auto& v : d_store)
+      v.needsGrad();
+  }
+  
   // hadamard
   auto dot(const us_t& rhs)
   {
@@ -172,7 +209,6 @@ struct NNArray
     return *this;
   }
 
-  
   void randomize(T fact=1.0)
   {
     std::random_device rd{};
@@ -181,9 +217,18 @@ struct NNArray
 
     for(auto& item : d_store) {
       item = (float)d(gen)*fact;
+      item.setVariable();
     }
   }
 
+  // wipes out all history
+  void reset()
+  {
+    d_store.clear();
+    d_store.resize(ROWS*COLS);
+    zero();
+  }
+  
   void zero()
   {
     constant(0);
@@ -210,10 +255,15 @@ struct NNArray
   auto norm() 
   {
     NNArray<T, ROWS, COLS> ret;
-    TrackedNumber<T> sum=0;
-
-    for(const auto& v : d_store)
+    TrackedNumber<T> sum;
+    bool first = true;
+    for(const auto& v : d_store) {
+      if(first) {
+        sum = v;
+        first=false;
+      }
       sum = sum + v;
+    }
     for(unsigned int pos = 0 ; pos < ret.d_store.size() ; ++pos)
       ret.d_store[pos] = d_store[pos]/sum;
     return ret;
@@ -225,14 +275,22 @@ struct NNArray
   auto logSoftMax() 
   {
     NNArray<T, ROWS, COLS> ret;
-    TrackedNumber<T> sum = T(0.0);
 
     TrackedNumber<T> lemax=d_store.at(0);
     for(size_t pos = 1; pos < d_store.size(); ++pos)
       lemax = makeMax(lemax, d_store[pos]);
-    
-    for(const auto& v : d_store)
-      sum = sum + makeFunc(v - lemax, ExpFunc());
+
+    TrackedNumber<T> sum;
+    bool first=true;
+    for(const auto& v : d_store) {
+      if(first) {
+        sum = makeFunc(v - lemax, ExpFunc());
+        first = false;
+      }
+      else 
+        sum = sum + makeFunc(v - lemax, ExpFunc());
+    }
+
     TrackedNumber<T> logsum = makeFunc(sum, LogFunc());
     for(unsigned int pos = 0 ; pos < ret.d_store.size() ; ++pos)
       ret.d_store[pos] = d_store[pos] - lemax - logsum;
@@ -290,7 +348,7 @@ struct NNArray
   {
     NNArray<float, ROWS, COLS> ret;
     for(unsigned int i = 0 ; i < ret.d_store.size(); ++i) {
-      ret.d_store[i] = d_store[i].getVal().a.at(idx);
+      ret.d_store[i] = d_store[i].getVal().v[idx];
     }
     return ret;
   }
@@ -301,8 +359,8 @@ struct NNArray
     float xval=fact*(*this)(0, col).getVal();
     int xrow=0;
     for(unsigned int r=0; r < ROWS; ++r) {
-      //      std::cout<<r<<std::endl;
       float val = fact*(*this)(r, col).getVal();
+      //      std::cout<<"ROWS " <<ROWS<< " r "<<r<<  " col " << col << " val " <<val<< " xval "<<xval << " xrow "<< xrow<<std::endl;
       if(val > xval) {
         xval = val;
         xrow=r;
@@ -403,9 +461,14 @@ struct NNArray
   {
     return in;
   }
+  static float extr(const fvector<4>& in) 
+  {
+    return in.v[0];
+  }
+  
   static float extr(const fvector<8>& in) 
   {
-    return in.a[0];
+    return in.v[0];
   }
   
   void save(std::ostream& out) const
@@ -490,3 +553,55 @@ std::ostream& operator<<(std::ostream& os, const SArray<T, ROWS, COLS>& ns)
   return os;
 }
 
+template<typename A, typename W>
+inline auto makeProj(const A& arr, const W& w)
+{
+  // goes over the store, records per pointer what position it is at
+  std::array<unsigned int, arr.SIZE> proj;
+  typename decltype(w.dyns)::value_type rt;
+  std::unordered_map<decltype(rt.second), decltype(rt.first)> rev;
+  for(const auto& p : w.dyns)
+    rev[p.second] = p.first;
+  
+  for(size_t pos = 0 ; pos < arr.SIZE; ++pos) {
+    if(auto iter = rev.find(arr.d_store[pos].impl.get()) ; iter != rev.end())
+      proj[pos] = iter->second;
+    else
+      proj[pos] = std::numeric_limits<unsigned int>::max();
+  }
+  return proj;
+}
+
+template<typename PROJ, typename SRC, typename DST>
+inline void projForward(const PROJ& proj, const SRC& src, DST& dst)
+{
+  static_assert(std::tuple_size<PROJ>::value == src.SIZE);
+  size_t pos = 0;
+  
+  for(const auto& v : src.d_store) {
+    if(proj[pos] != std::numeric_limits<unsigned int>::max()) // not everything needs to be mapped forward
+      dst.work[proj[pos++]].ourval = v.getVal();
+  }
+}
+
+template<typename PROJ, typename SRC, typename DST>
+inline void projBack(const PROJ& proj, const SRC& src, DST& dst)
+{
+  static_assert(std::tuple_size<PROJ>::value == dst.SIZE);
+  size_t pos = 0;
+  for(auto& v : dst.d_store) {
+    v = src.work[proj[pos]].ourval;
+    v.impl->d_grad = src.grads[proj[pos]];
+    pos++;
+  }
+}
+
+template<typename PROJ, typename SRC, typename DST>
+inline void projBackGrad(const PROJ& proj, const SRC& src, DST& dst)
+{
+  static_assert(std::tuple_size<PROJ>::value == dst.SIZE);
+  size_t pos = 0;
+  for(auto& v : dst.d_store) {
+    v.impl->d_grad += src.grads[proj[pos++]].sum();
+  }
+}

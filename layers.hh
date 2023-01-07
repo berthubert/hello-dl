@@ -2,6 +2,7 @@
 #include "array.hh"
 #include <unistd.h>
 #include <iostream>
+#include <string.h>
 
 struct LayerBase
 {
@@ -18,6 +19,8 @@ struct Linear : LayerBase
   NNArray<T, OUT, IN> d_weights;
   NNArray<T, OUT, 1> d_bias;
 
+  std::array<unsigned int, decltype(d_weights)::SIZE> d_wproj;
+  std::array<unsigned int, decltype(d_bias)::SIZE> d_bproj;
   Linear()
   {
     randomize();
@@ -26,6 +29,8 @@ struct Linear : LayerBase
   {
     d_weights.randomize(1.0/sqrt(IN));
     d_bias.randomize(1.0/sqrt(IN));
+    d_weights.needsGrad();
+    d_bias.needsGrad();
   }
 
   unsigned int size() const override
@@ -78,6 +83,28 @@ struct Linear : LayerBase
     d_weights.load(in);
     d_bias.load(in);
   }
+
+  template<typename W>
+  void makeProj(const W& w)
+  {
+    d_wproj = ::makeProj(d_weights, w);
+    d_bproj = ::makeProj(d_bias, w);
+  }
+  template<typename W>
+  void projForward(W& w) const
+  {
+    ::projForward(d_wproj, d_weights, w);
+    ::projForward(d_bproj, d_bias, w);
+  }
+
+  template<typename W>
+  void projBackGrad(const W& w)
+  {
+    ::projBackGrad(d_wproj, w, d_weights);
+    ::projBackGrad(d_bproj, w, d_bias);
+  }
+
+  
 };
 
 
@@ -88,6 +115,8 @@ struct Conv2d : LayerBase
   std::array<NNArray<T, KERNEL, KERNEL>, OUTLAYERS> d_filters;
   std::array<NNArray<T, 1, 1>, OUTLAYERS> d_bias;
 
+  std::array<std::array<unsigned int, KERNEL*KERNEL>, OUTLAYERS> d_fproj;
+  std::array<std::array<unsigned int, 1>, OUTLAYERS> d_bproj;
   Conv2d()
   {
     randomize();
@@ -95,10 +124,14 @@ struct Conv2d : LayerBase
 
   void randomize()
   {
-    for(auto& f : d_filters)
+    for(auto& f : d_filters) {
       f.randomize(sqrt(1.0/(INLAYERS*KERNEL*KERNEL)));
-    for(auto& b : d_bias)
+      f.needsGrad();
+    }
+    for(auto& b : d_bias) {
       b.randomize(sqrt(1.0/(INLAYERS*KERNEL*KERNEL)));
+      b.needsGrad();
+    }
   }
 
   unsigned int size() const override
@@ -191,6 +224,35 @@ struct Conv2d : LayerBase
     for(auto& w : d_bias)
       w.load(in);
   }
+
+  template<typename W>
+  void makeProj(const W& w)
+  {
+    for(size_t pos = 0 ; pos < d_filters.size(); ++pos)
+      d_fproj[pos] = ::makeProj(d_filters[pos], w);
+    for(size_t pos = 0 ; pos < d_bias.size(); ++pos)
+      d_bproj[pos] = ::makeProj(d_bias[pos], w);
+  }
+
+  template<typename W>
+  void projForward(W& w) const
+  {
+    for(size_t pos = 0 ; pos < d_filters.size(); ++pos)
+      ::projForward(d_fproj[pos], d_filters[pos], w);
+    for(size_t pos = 0 ; pos < d_bias.size(); ++pos)
+      ::projForward(d_bproj[pos], d_bias[pos], w);
+  }
+
+  template<typename W>
+  void projBackGrad(const W& w)
+  {
+    for(size_t pos = 0 ; pos < d_filters.size(); ++pos)
+      ::projBackGrad(d_fproj[pos], w, d_filters[pos]);
+    for(size_t pos = 0 ; pos < d_bias.size(); ++pos)
+      ::projBackGrad(d_bproj[pos], w, d_bias[pos]);
+  }
+
+
 };
 
 template<typename T, unsigned int ROWS, unsigned int COLS, long unsigned int CHANNELS>

@@ -38,7 +38,7 @@ public:
       for(int col=0 ; col < 28; ++col) {
         if(!dest(row,col).impl) // XXX FUGLY
           dest(row, col) = 0;
-        dest(row, col).impl->d_val.a[idx] = src.at(row+28*col);
+        dest(row, col).impl->d_val.v[idx] = src.at(row+28*col);
       }
   }
 

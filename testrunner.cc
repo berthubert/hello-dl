@@ -166,17 +166,17 @@ TEST_CASE("sigmoid test") {
   TrackedFloat y(2.0);
   TrackedFloat res = makeFunc(x+y, SigmoidFunc());
   
-  CHECK(res.getVal() ==   SigmoidFunc::func(1.0));
+  CHECK(res.getVal() ==   MakeSigmoidFunc().func(1.0));
   res.backward();
-  CHECK(x.getGrad() == SigmoidFunc::deriv(1.0));
-  CHECK(y.getGrad() == SigmoidFunc::deriv(1.0));
+  CHECK(x.getGrad() == MakeSigmoidFunc().deriv(1.0));
+  CHECK(y.getGrad() == MakeSigmoidFunc().deriv(1.0));
 
   res.zeroGrad();
   x=-20;
-  CHECK(res.getVal() ==   SigmoidFunc::func(-18.0));
+  CHECK(res.getVal() ==   MakeSigmoidFunc().func(-18.0));
   res.backward();
-  CHECK(x.getGrad() == SigmoidFunc::deriv(-18.0));
-  CHECK(y.getGrad() == SigmoidFunc::deriv(-18.0));
+  CHECK(x.getGrad() == MakeSigmoidFunc().deriv(-18.0));
+  CHECK(y.getGrad() == MakeSigmoidFunc().deriv(-18.0));
   
 }
 
@@ -186,10 +186,10 @@ TEST_CASE("sigmoid advanced test") {
   TrackedFloat y(2.0);
   TrackedFloat res = makeFunc(x*x+y*y*y, SigmoidFunc());
   
-  CHECK(res.getVal() ==   SigmoidFunc::func(9.0));
+  CHECK(res.getVal() ==   MakeSigmoidFunc().func(9.0));
   res.backward();
-  CHECK(x.getGrad() == -2*SigmoidFunc::deriv(9.0));
-  CHECK(y.getGrad() == 3*4*SigmoidFunc::deriv(9.0));
+  CHECK(x.getGrad() == -2*MakeSigmoidFunc().deriv(9.0));
+  CHECK(y.getGrad() == 3*4*MakeSigmoidFunc().deriv(9.0));
 }
 
 TEST_CASE("sigmoid negative test") {
@@ -198,11 +198,31 @@ TEST_CASE("sigmoid negative test") {
   TrackedFloat one(1.0);
   TrackedFloat res = one-makeFunc(x*x+y*y*y, SigmoidFunc());
   
-  CHECK(res.getVal() ==   1-SigmoidFunc::func(9.0));
+  CHECK(res.getVal() ==   1-MakeSigmoidFunc().func(9.0));
   res.backward();
-  CHECK(x.getGrad() == 2*SigmoidFunc::deriv(9.0));
-  CHECK(y.getGrad() == -3*4*SigmoidFunc::deriv(9.0));
+  CHECK(x.getGrad() == 2*MakeSigmoidFunc().deriv(9.0));
+  CHECK(y.getGrad() == -3*4*MakeSigmoidFunc().deriv(9.0));
 }
+
+TEST_CASE("tanh test") {
+  TrackedFloat x(1.0);
+  TrackedFloat y(1.0);
+  TrackedFloat res = makeFunc(x-y, TanhFunc());
+  
+  CHECK(res.getVal() == doctest::Approx(0.0));
+  res.backward();
+  CHECK(x.getGrad() == doctest::Approx(1.0));
+  CHECK(y.getGrad() == doctest::Approx(-1.0));
+
+  res.zeroGrad();
+  x = 2;
+  CHECK(res.getVal() ==   doctest::Approx(tanhf(1.0)));
+  res.backward();
+  CHECK(x.getGrad() == doctest::Approx(1 - tanhf(1.0)*tanhf(1.0)));
+  CHECK(y.getGrad() == -x.getGrad());
+  
+}
+
 
 
 TEST_CASE("vector test") {
