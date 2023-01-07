@@ -57,7 +57,7 @@ Despite doing some neural network experiments in the 1990s, I'm extremely new to
 <!-- https://medium.com/geekculture/a-2021-guide-to-improving-cnns-optimizers-adam-vs-sgd-495848ac6008 --> 
 <!-- GRU https://blog.floydhub.com/gru-with-pytorch/ -->
 <!-- GRU paper https://arxiv.org/pdf/1406.1078.pdf -->
- 
+<!-- https://arxiv.org/pdf/2212.14034.pdf large language models on smaller systems -->
 # Status
 So far this implements a small but pretty nice autograd system. In
 `first-convo.cc` you can find a ~1100 line total computer program that
@@ -139,3 +139,6 @@ https://github.com/fastai/fastbook/blob/master/04_mnist_basics.ipynb
 
 Also really good:
 https://pytorch.org/tutorials/beginner/nn_tutorial.html
+
+# Internals
+Use `TrackedNumber` to build networks. You can also run them there if you want, but a faster way is to export them as 'Work' objects, which are a solid slab of contiguous memory.
