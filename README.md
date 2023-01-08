@@ -17,6 +17,9 @@ To do so, this project contains some minimalist tooling.  The software may
 be minimal, but will showcase modern deep learning techniques that should
 wow you into believing that something very special is going on.
 
+The intended audience is people comfortable with programming and who want to
+(re)join the artificial intelligence scene from the ground up.
+
 This project was inspired by [Georgi Gerganov](https://ggerganov.com/)'s
 AWESOME [C++ implementation of OpenAI's Whisper speech/translation model](https://github.com/ggerganov/whisper.cpp).
 
