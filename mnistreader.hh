@@ -2,9 +2,10 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
-#include "array.hh"
-#include "fvector.hh"
+//#include "array.hh"
+//#include "fvector.hh"
 
+#include "tensor2.hh"
 class MNISTReader
 {
 public:
@@ -21,7 +22,7 @@ public:
     else
       throw std::runtime_error("Could not find image "+std::to_string(n));
   }
-
+  /*
   void pushImage(int n, NNArray<float, 28, 28>& dest) const
   {
     const auto& src = getImageFloat(n);
@@ -29,7 +30,16 @@ public:
       for(int col=0 ; col < 28; ++col)
         dest(row, col) = src.at(row+28*col);
   }
-
+  */
+  template<typename T>
+  void pushImage(int n, Tensor<T>& dest) const
+  {
+    assert(dest.d_imp && dest.d_imp->d_mode == TMode::Parameter);
+    const auto& src = getImageFloat(n);
+    for(unsigned int pos = 0 ; pos < src.size(); ++pos)
+      dest.d_imp->d_val.reshaped()(pos) = src.at(pos);
+  }
+  /*
   template<typename UT>
   void pushImage(int n, NNArray<UT, 28, 28>& dest, int idx) const
   {
@@ -41,7 +51,7 @@ public:
         dest(row, col).impl->d_val.v[idx] = src.at(row+28*col);
       }
   }
-
+  */
   
   char getLabel(int n) const;
 private:

@@ -7,7 +7,7 @@
 #include <iostream>
 #include <unordered_set>
 #include <Eigen/Dense>
-
+#include <Eigen/CXX11/Tensor>
 // goal, a tensor that does its own gradients
 
 enum class TMode : uint8_t
@@ -106,12 +106,12 @@ struct TensorImp
     else if(d_mode == TMode::Addition) {
       d_lhs->assureValue();
       d_rhs->assureValue();
-      d_val = d_lhs->d_val + d_rhs->d_val;
+      d_val.noalias() = d_lhs->d_val + d_rhs->d_val;
     }
     else if(d_mode == TMode::Mult) {
       d_lhs->assureValue();
       d_rhs->assureValue();
-      d_val = d_lhs->d_val * d_rhs->d_val;
+      d_val.noalias() = d_lhs->d_val * d_rhs->d_val;
     }
     else if(d_mode == TMode::Neg) {
       d_lhs->assureValue();
@@ -136,8 +136,19 @@ struct TensorImp
       d_val = d_lhs->d_val.block(d_slicep.r, d_slicep.c, d_slicep.h, d_slicep.w);
     }
     else if(d_mode == TMode::Flatten) {
-      d_lhs->assureValue();
-      d_val = d_lhs->d_val.reshaped();
+      size_t siz=0;
+      for(auto& m : d_flattenp.members) {
+        m->assureValue();
+        siz +=m->d_val.reshaped().rows();
+      }
+
+      d_val = Eigen::MatrixX<T>(siz, 1);
+      int pos=0;
+              
+      for(auto& m : d_flattenp.members) {
+        for(int c=0; c < m->d_val.reshaped().rows(); ++c)
+          d_val(pos++, 0)= m->d_val.reshaped()(c, 0);
+      }
     }
     else if(d_mode == TMode::Func) {
       d_lhs->assureValue();
@@ -152,7 +163,7 @@ struct TensorImp
     else if(d_mode == TMode::Convo) {
       d_lhs->assureValue();
       d_rhs->assureValue(); // the weights
-
+      
       d_val = Eigen::MatrixX<T>(1 + d_lhs->d_val.rows() - d_convop.kernel, 1 + d_lhs->d_val.cols() - d_convop.kernel);
       for(int r = 0 ; r < d_val.rows(); ++r)
         for(int c = 0 ; c < d_val.cols(); ++c)
@@ -161,14 +172,17 @@ struct TensorImp
     }
     else if(d_mode == TMode::Max2D) {
       d_lhs->assureValue();
-      // DOES NOT DO ANY PADDING!!
-      assert((d_lhs->d_val.rows() % d_max2dp.kernel)==0 && (d_lhs->d_val.cols() % d_max2dp.kernel)==0); 
-      d_val = Eigen::MatrixX<T>(d_lhs->d_val.rows()/d_max2dp.kernel, d_lhs->d_val.cols()/d_max2dp.kernel);
+      // round up in case of padding
+      d_val = Eigen::MatrixX<T>((d_lhs->d_val.rows()+d_max2dp.kernel-1)/d_max2dp.kernel,
+                                (d_lhs->d_val.cols()+d_max2dp.kernel-1)/d_max2dp.kernel);
       for(int r = 0 ; r < d_lhs->d_val.rows(); r += d_max2dp.kernel)
         for(int c = 0 ; c < d_lhs->d_val.cols(); c += d_max2dp.kernel) {
-          std::cout<<r<<","<<c<<","<<d_max2dp.kernel<<"\n";
-          std::cout<<"Part\n"<<d_lhs->d_val.block(r, c, d_max2dp.kernel, d_max2dp.kernel)<<"\n";
-          d_val(r/d_max2dp.kernel,c/d_max2dp.kernel) = d_lhs->d_val.block(r, c, d_max2dp.kernel, d_max2dp.kernel).maxCoeff();
+          //          //          std::cout<<r<<","<<c<<","<<d_max2dp.kernel<<"\n";
+          //          std::cout<<"Part\n"<<d_lhs->d_val.block(r, c, d_max2dp.kernel, d_max2dp.kernel)<<"\n";
+          // padding
+          int effheight = std::min(r+ d_max2dp.kernel, (int)d_lhs->d_val.rows()) - r;
+          int effwidth = std::min(c+ d_max2dp.kernel, (int)d_lhs->d_val.cols()) - c;
+          d_val(r/d_max2dp.kernel,c/d_max2dp.kernel) = d_lhs->d_val.block(r, c, effheight, effwidth).maxCoeff();
         }
     }
     else {
@@ -196,25 +210,6 @@ struct TensorImp
     return d_val(row, col);
   }
 
-  auto operator+(const TensorImp<T>& rhs) const
-  {
-    assureValue();
-    rhs.assureValue();
-    us_t ret;
-    ret.d_val = d_val + rhs.d_val;
-    return ret;
-  }
-
-  
-  auto operator*(const TensorImp<T>& rhs) const
-  {
-    assureValue();
-    rhs.assureValue();
-    us_t ret;
-    ret.d_val = (d_val * rhs.d_val);
-    return ret;
-  }
-
   // this function is key to the magic
   void build_topo(std::unordered_set<TensorImp<T>*>& visited, std::vector<TensorImp<T>*>& topo)
   {
@@ -228,6 +223,10 @@ struct TensorImp
     if(d_rhs) {
       d_rhs->build_topo(visited, topo);
     }
+    if(d_mode == TMode::Flatten)
+      for(auto& m : d_flattenp.members)
+        m->build_topo(visited, topo);
+    // XXX also need to do bias of convo
     topo.push_back(this);
   }
 
@@ -243,7 +242,10 @@ struct TensorImp
       cout << "d_lhs->d_grads array\n"<< d_lhs->d_grads.array() << endl;
       cout << "d_grads array\n"<< d_grads.array() << endl;
       */
-      d_lhs->d_grads.reshaped() += d_grads;
+      int gradpos=0;
+      for(auto& m : d_flattenp.members)
+        for(int r=0; r < m->d_grads.reshaped().rows(); ++r)
+          m->d_grads.reshaped()(r, 0) += d_grads.reshaped()(gradpos++, 0);
     }
     else if(d_mode == TMode::Addition) {
       d_lhs->d_grads += d_grads;
@@ -260,29 +262,29 @@ struct TensorImp
       cout<<"rhs->d_val: \n"<<d_rhs->d_val << endl;
       cout<<"attempt lhs: \n"<<(d_grads * d_rhs->d_val.transpose())<<endl;
       */
-      d_lhs->d_grads += (d_grads * d_rhs->d_val.transpose());
+      d_lhs->d_grads.noalias() += (d_grads * d_rhs->d_val.transpose());
       /*
       cout<<"d_grads: \n"<<d_grads<<endl;
       cout<<"lhs->d_val: \n"<<d_lhs->d_val << endl;      
       cout<<"attempt rhs: \n"<<(d_lhs->d_val.transpose() * d_grads) << endl;
       */
-      d_rhs->d_grads += (d_lhs->d_val.transpose() * d_grads);
+      d_rhs->d_grads.noalias() += (d_lhs->d_val.transpose() * d_grads);
     }
     else if(d_mode == TMode::Div) { // so matrix division is "not really a thing"
       d_lhs->d_grads.array() += (d_grads.array() / d_rhs->d_val(0,0));
       /// XXX super wrong I bet
       //d_rhs->d_grads +=(-d_grads * d_rhs->d_val / (d_rhs->d_val * d_rhs->d_val));
     }
-    else if(d_mode == TMode::DotProd) {
-      d_lhs->d_grads.array() += d_rhs->d_val.array();
-      d_rhs->d_grads.array() += d_lhs->d_val.array();
+    else if(d_mode == TMode::DotProd) { 
+      d_lhs->d_grads.array() += d_grads.array() * d_rhs->d_val.array();
+      d_rhs->d_grads.array() += d_grads.array() * d_lhs->d_val.array();
     }
     else if(d_mode == TMode::Slice) {
       d_lhs->d_grads.block(d_slicep.r, d_slicep.c, d_slicep.h, d_slicep.w) += d_grads;
     }
     else if(d_mode == TMode::Sum) {
       using namespace std;
-      d_lhs->d_grads.array() += d_lhs->d_grads.array() + d_grads(0,0);
+      d_lhs->d_grads.array() += d_grads(0,0);
     }
     else if(d_mode == TMode::LogSoftMax) {
       // I cargo culted this so it produces the same numbers as PyTorch
@@ -322,24 +324,34 @@ struct TensorImp
 
 
       // the output (d_val) has shape 1 + d_lhs (input)  - d_rhs (filters)
+
+      //      std::cout<<"Called for "<<d_val.rows()<<" rows and " << d_val.cols()<<" cols, grads sum "<<d_grads.sum()<<"\n";
+      //      std::cout<<"Our grads:\n"<<d_grads<<"\n";
+      if(!d_lhs->d_nograd)
       for(int r = 0 ; r < d_val.rows(); ++r)
         for(int c = 0 ; c < d_val.cols(); ++c)
-          d_lhs->d_grads.block(r,c,d_convop.kernel, d_convop.kernel)  += d_rhs->d_val;
+          d_lhs->d_grads.block(r,c,d_convop.kernel, d_convop.kernel)  += d_rhs->d_val * d_grads(r,c);
 
       // now add grads to the filter - note that this convolves over blocks
+      // XXX we ignore our own grads
       // the size of the output!
       for(int r = 0 ; r < d_rhs->d_val.rows(); ++r)
         for(int c = 0 ; c < d_rhs->d_val.cols(); ++c)
-          d_rhs->d_grads(r,c) += d_lhs->d_val.block(r, c, d_val.rows(), d_val.cols()).sum();
-
+          d_rhs->d_grads(r,c) += (d_lhs->d_val.block(r, c, d_val.rows(), d_val.cols())*d_grads).sum();
+                                         // this is a d_vals sized block
+      d_rhs->d_grads.array() /= sqrt(d_grads.rows()*d_grads.cols());
       d_convop.bias->d_grads(0,0) += d_val.rows() * d_val.cols(); // we zero this explicitly in get grads
     }
     else if(d_mode == TMode::Max2D) {
       for(int r = 0 ; r < d_lhs->d_val.rows(); r += d_max2dp.kernel) {
         for(int c = 0 ; c < d_lhs->d_val.cols(); c += d_max2dp.kernel) {
           unsigned int mrow=0, mcol=0;
-          d_lhs->d_val.block(r, c, d_max2dp.kernel, d_max2dp.kernel).maxCoeff(&mrow, &mcol);
-          d_lhs->d_grads(r+mrow, c+mcol)++;
+          // padding
+          int effheight = std::min(r+ d_max2dp.kernel, (int)d_lhs->d_val.rows()) - r;
+          int effwidth = std::min(c+ d_max2dp.kernel, (int)d_lhs->d_val.cols()) - c;
+
+          d_lhs->d_val.block(r, c, effheight, effwidth).maxCoeff(&mrow, &mcol);
+          d_lhs->d_grads(r+mrow, c+mcol) += d_grads(r/d_max2dp.kernel, c/d_max2dp.kernel);
         }
       }
     }
@@ -351,6 +363,7 @@ struct TensorImp
   std::shared_ptr<us_t> d_lhs, d_rhs;
   TMode d_mode;
   mutable bool d_haveval = false;
+  bool d_nograd{false};
   struct SliceParams
   {
     int r, c;
@@ -367,6 +380,11 @@ struct TensorImp
     int kernel;
     std::shared_ptr<TensorImp<T>> bias;
   } d_convop;
+
+  struct FlattenParams
+  {
+    std::vector<std::shared_ptr<TensorImp<T>>> members;
+  } d_flattenp;
 
 };
 
@@ -426,6 +444,10 @@ struct Tensor
         (*iter)->d_haveval = false;
       if((*iter)->d_mode == TMode::Convo) // UGLY
         (*iter)->d_convop.bias->d_grads(0,0)=0;
+      if((*iter)->d_mode == TMode::Flatten) // UGLY
+        for(auto& m : (*iter)->d_flattenp.members)
+          m->d_grads.setConstant(0);
+
     }
   }
 
@@ -452,8 +474,6 @@ struct Tensor
       (*iter)->d_accumgrads += (*iter)->d_grads;
     }
   }
-
-    
   
   void randomize(float fact)
   {
@@ -482,6 +502,16 @@ struct Tensor
     }
   }
 
+  void identity(float f)
+  {
+    assert(d_imp->d_val.rows() == d_imp->d_val.cols());
+    d_imp->d_mode = TMode::Parameter;
+    for(unsigned int r = 0 ; r < d_imp->d_val.rows(); ++r) {
+      d_imp->d_val(r,r)= f;
+    }
+  }
+
+  
   auto& operator-=(const Eigen::MatrixX<T>& rhs)
   {
     d_imp->d_val -= rhs;
@@ -529,15 +559,6 @@ struct Tensor
     return ret;
   }
 
-  
-  
-  Tensor<T> makeFlatten()
-  {
-    Tensor<T> ret;
-    ret.d_imp = std::make_shared<TensorImp<T>>(d_imp, std::shared_ptr<TensorImp<T>>(), TMode::Flatten);
-    return ret;
-  }
-
   unsigned int getRows() const
   {
     return d_imp->d_val.rows();
@@ -547,6 +568,30 @@ struct Tensor
     return d_imp->d_val.cols();
   }
 
+  void save(std::ostream& out) const
+  {
+    auto swrite = [&out](float v) {
+      out.write((char*)&v, sizeof(v));
+    };
+    swrite(d_imp->d_val.rows());
+    swrite(d_imp->d_val.cols());
+    out.write((const char*)d_imp->d_val.data(), sizeof(T)*d_imp->d_val.rows() * d_imp->d_val.cols());
+  }
+
+  void load(std::istream& in)
+  {
+    auto sread = [&in]() {
+      float v;
+      in.read((char*)&v, sizeof(v));
+      return v;
+    };
+    if(d_imp->d_val.rows() != sread() || d_imp->d_val.cols() !=sread())  // living dangerously here!
+      throw std::logic_error("Dimensions of stream to load from do not match");
+
+    in.read((char*)d_imp->d_val.data(), sizeof(T)*d_imp->d_val.rows() * d_imp->d_val.cols());
+  }
+
+  
   std::shared_ptr<TensorImp<T>> d_imp;
 };
 
@@ -611,6 +656,27 @@ inline Tensor<T> makeLogSoftMax(const Tensor<T>& lhs)
   ret.d_imp = std::make_shared<TensorImp<T>>(lhs.d_imp, std::shared_ptr<TensorImp<T>>(), TMode::LogSoftMax);
   return ret;
 }
+
+template<typename T, size_t N>
+Tensor<T> makeFlatten(const std::array<Tensor<T>, N>& members)
+{
+  Tensor<T> ret;
+  ret.d_imp = std::make_shared<TensorImp<T>>(std::shared_ptr<TensorImp<T>>(), std::shared_ptr<TensorImp<T>>(), TMode::Flatten);
+  for(const auto& m : members)
+    ret.d_imp->d_flattenp.members.push_back(m.d_imp);
+  return ret;
+}
+
+template<typename T>
+Tensor<T> makeFlatten(const std::initializer_list<Tensor<T>>& members)
+{
+  Tensor<T> ret;
+  ret.d_imp = std::make_shared<TensorImp<T>>(std::shared_ptr<TensorImp<T>>(), std::shared_ptr<TensorImp<T>>(), TMode::Flatten);
+  for(const auto& m : members)
+    ret.d_imp->d_flattenp.members.push_back(m.d_imp);
+  return ret;
+}
+
 
 template<typename T>
 std::ostream& operator<<(std::ostream& os, const Tensor<T>& ns)

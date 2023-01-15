@@ -3,6 +3,9 @@
 #include <iostream>
 #include <Eigen/Dense>
 #include "misc.hh"
+#include <fstream>
+#include <unistd.h>
+#include <fcntl.h>
 using namespace std;
 
 
@@ -268,7 +271,52 @@ TEST_CASE("tensor dot test")
   CHECK(x.getGrad() == y.d_imp->d_val);
 }
 
-TEST_CASE("tensor slice test")
+TEST_CASE("tensor sum test")
+{
+  Tensor x(5,1);
+  x.iota(1);
+
+  Tensor m(1,1);
+  m.identity(4);
+  
+  cout << "x:\n" << x << endl;
+  cout << "x*m:\n" << (x*m) << endl;
+  auto sum = (x*m).sum();
+  cout<<sum<<endl;
+  auto ssum = sum+sum;
+  auto topo = ssum.getTopo();
+  ssum.backward(topo);
+
+  CHECK(x.getGrad()(0,0)==8);
+  CHECK(x.getGrad()(1,0)==8);
+  CHECK(x.getGrad()(2,0)==8);
+  CHECK(x.getGrad()(3,0)==8);
+  CHECK(x.getGrad()(4,0)==8);
+  
+}
+
+TEST_CASE("tensor dot grad test")
+{
+  Tensor x(5,5), y(5,5), z(5,5);
+  x.iota(1);  // 1  2  3  4  5
+              // 6  7  8  9  10
+  y.iota(5);  // 5  6  7  8  9
+              // 10 11
+  z.identity(2);
+
+  Tensor res = (x.dot(y)*z).sum();
+  cout << res << endl;
+
+  auto topo = res.getTopo();
+  res.backward(topo);
+
+  CHECK(x.getGrad()(0,0)==10);
+  CHECK(x.getGrad()(1,1)== 11*2);
+  CHECK(y.getGrad()(0,0)== 7*2); 
+  
+}
+
+TEST_CASE("tensor slice and dot test")
 {
   Tensor x(5, 5);
   int count = 1;
@@ -308,19 +356,22 @@ TEST_CASE("tensor slice test")
 TEST_CASE("tensor flatten test")
 {
   Tensor x(5,5);
-  int count=0;
+  Tensor y(2,3);
+  y.iota(75);
   
+  int count=0;
+
   for(unsigned int c = 0 ; c < 5; ++c)
     for(unsigned int r = 0 ; r < 5; ++r)
       x(r,c) = count++;
   cout<<"x:\n"<<x<<endl;
-  auto f = x.makeFlatten();
+  auto f = makeFlatten({x,y});
   cout << "f:\n"<< f << endl;
 
 
-  Tensor m(1, 25);
+  Tensor m(1, 25+6);
   count=0;
-  for(unsigned int c = 0; c < 25; ++c)
+  for(unsigned int c = 0; c < 25+6; ++c)
     m(0, c) = count++;
 
   cout<<"m:\n"<<m<<endl;
@@ -338,6 +389,7 @@ TEST_CASE("tensor flatten test")
       ++count;
     }
   }
+  cout<<"y.getGrad():\n"<<y.getGrad()<<endl;
 }
 
 
@@ -426,13 +478,24 @@ TEST_CASE("tensor convo2d more") {
 TEST_CASE("tensor convo2d backward") {
   Tensor input(6,6);
   input.iota(1);
+  input(0,0)=11.0;
   cout<<"input:\n"<<input<<endl;
-
+#if 0
   Tensor filter(3,3);
   filter(0,0) = 0.1107; filter(0,1)=  0.2178; filter(0,2)= -0.1075;
   filter(1,0)= 0.0788; filter(1,1)= 0.1591; filter(1,2)=  0.1667;
   filter(2,0)=-0.2994; filter(2,1)= 0.1177; filter(2,2)=  0.2621;
+#endif
+  Tensor filter(2,2);
+  filter(0,0) = -0.0352; filter(0,1)= 0.0890;// filter(0,2)= -0.1075;
+  filter(1,0)= 0.4843; filter(1,1)= 0.3177; //filter(1,2)=  0.1667;
+  //  filter(2,0)=-0.2994; filter(2,1)= 0.1177; filter(2,2)=  0.2621;
 
+
+  
+  Tensor factor(6,6);
+  factor.identity(2.0);
+  
   /*
 Parameter containing:
 tensor([[[[ 0.1107,  0.2178, -0.1075],
@@ -445,7 +508,7 @@ tensor([0.1104], requires_grad=True)
   cout<<"filter:\n"<<filter<<endl;
 
   Tensor bias(1,1);
-  auto c = input.makeConvo(3, filter, bias);
+  auto c = (input*factor).makeConvo(2, filter, bias);
   cout<<"c:\n"<<c<<endl;
   auto s=c.sum();
   auto topo=s.getTopo();
@@ -459,7 +522,7 @@ tensor([0.1104], requires_grad=True)
   CHECK(input.getGrad()(4,2) == doctest::Approx(0.485));
   CHECK(input.getGrad()(5,5) == doctest::Approx(0.2621));
   CHECK(filter.getGrad()(0,0)==184);
-  CHECK(filter.getGrad()(0,2)==216);
+  //  CHECK(filter.getGrad()(0,2)==216);
   CHECK(bias.getGrad()(0,0) == 16);
   /* These numbers match PyTorch
 c:
@@ -495,26 +558,34 @@ TEST_CASE("tensor max2d") {
   in(4,0)=0;        in(4,1)=0;        in(4,2)=-9;        in(4,3)=-5;   
   in(5,0)=1;        in(5,1)=7;        in(5,2)=-4;        in(5,3)=-3;      
 
-  auto m = in.makeMax2d(2);
+  Tensor f(4,4);
+  f(0,0) = 3.5;
+  f(1,1) = 3.5;
+  f(2,2) = 3.5;
+  f(3,3) = 3.5;
 
-  CHECK(m(0,0) == 2);
-  CHECK(m(0,1) == 3);
-  CHECK(m(1,0) == 7);
-  CHECK(m(1,1) == -3);
+  
+  auto m = (in*f).makeMax2d(2);
+
+  CHECK(m(0,0) == 2*3.5);
+  CHECK(m(0,1) == 3*3.5);
+  CHECK(m(1,0) == 7*3.5);
+  CHECK(m(1,1) == -3*3.5);
 
   auto s = m.sum();
+
   auto topo = s.getTopo();
   s.backward(topo);
   CHECK(in.getGrad()(0,0) == 0);
-  CHECK(in.getGrad()(0,1) == 1);
+  CHECK(in.getGrad()(0,1) == 3.5);
 
   CHECK(in.getGrad()(2,0) == 0);
-  CHECK(in.getGrad()(3,1) == 1);
+  CHECK(in.getGrad()(3,1) == 3.5);
   
-  CHECK(in.getGrad()(5,3) == 1);
+  CHECK(in.getGrad()(5,3) == 3.5);
   CHECK(in.getGrad()(4,3) == 0);
 }
-#if 0
+
 
 TEST_CASE("max2d padding") {
 
@@ -523,7 +594,7 @@ TEST_CASE("max2d padding") {
   in(1,0)=0;        in(1,1)=0;        in(1,2)=0;       
   in(2,0)=0;        in(2,1)=0;        in(2,2)=-9;      
 
-  auto m = in.max2d(2); // 2*2
+  auto m = in.makeMax2d(2); // 2*2
 
   CHECK(m(0,0) == 2);
   CHECK(m(0,1) == 3);
@@ -536,4 +607,31 @@ TEST_CASE("max2d padding") {
   CHECK(in.getGrad()(0,0) == 0);
   CHECK(in.getGrad()(0,1) == 1);
 }
-#endif
+
+
+TEST_CASE("tensor save and load")
+{
+  ostringstream str;
+  Tensor f(20, 25);
+  f.randomize(1.0);
+
+  f.save(str);
+
+  {
+    ofstream ofs("tensor.arr");
+    f.save(ofs);
+  }
+  unlink("tensor.arr");
+  
+  string saved = str.str();
+
+  Tensor restored(20,25);
+  restored.zero();
+  istringstream istr(saved);
+
+  restored.load(istr);
+
+  auto diff = restored - f;
+  CHECK(diff.sum()(0,0) ==  0);
+  
+}

@@ -57,7 +57,7 @@ MNISTReader::MNISTReader(const std::string& images, const std::string& labels)
   if(i1h.magic != 2049)
     throw runtime_error("Magic value of labels file wrong "+to_string(i1h.magic));
   if(i3h.magic != 2051)
-    throw runtime_error("Magic value of images file wrong "+to_string(i1h.magic));
+    throw runtime_error("Magic value of images file wrong "+to_string(i3h.magic));
 
   if(i3h.num != i1h.num)
     throw runtime_error("Mismatch between number of labels and number of images");

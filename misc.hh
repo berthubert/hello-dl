@@ -1,8 +1,37 @@
 #pragma once
+#include <iostream>
+#include <random>
+#include <algorithm>
 #include <deque>
 #include <vector>
 #include <chrono>
 #include <mutex>
+#include <memory>
+#include <atomic>
+
+struct HyperParameters
+{
+  float lr;
+  float momentum;
+  int batchMult;
+  unsigned int getBatchSize()
+  {
+    return 8*batchMult;
+  }
+};
+
+struct TrainingProgress
+{
+  int batchno=0;
+  float lastTook=0;
+  std::vector<float> losses;
+  std::vector<float> corrects;
+  std::atomic<unsigned int> trained=0;
+};
+
+extern struct TrainingProgress g_progress;
+extern std::shared_ptr<HyperParameters> g_hyper;
+int graphicsThread();
 
 class Batcher
 {
@@ -75,6 +104,8 @@ void printImg(const T& img)
   }
   std::cout<<"\n";
 }
+
+
 
 struct DTime
 {

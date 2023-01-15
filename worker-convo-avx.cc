@@ -16,11 +16,6 @@
 #include "fvector.hh"
 
 #include <stdio.h>
-double g_lastBatchTook=0.0;
-std::atomic<unsigned int> g_trained=0;
-float g_lr=0.005;
-std::vector<float> g_losses;
-constexpr int batchsize=64;
 
 using TheModel = CNNAlphabetModel<float>;
 
@@ -28,25 +23,27 @@ using namespace std;
 
 ofstream g_tree; //("tree.part");
 
+std::shared_ptr<HyperParameters> g_hyper;
+struct TrainingProgress g_progress;
+
 template<typename W, typename IMGPROJ, typename SCOPROJ, typename EXPPROJ>
 void scoreModel(W& w8, const IMGPROJ& imgproj, const SCOPROJ& scoresproj, const EXPPROJ& expproj, const MNISTReader& mntest, int batchno)
 {
   unsigned int corrects=0, wrongs=0;
   static ofstream vcsv("validation2.csv");
-  static bool notfirst;
-  if(!notfirst) {
+  std::call_once([&vcsv]() {
     vcsv<<"batchno,corperc,avgloss\n";
-    notfirst=true;
-  }
+  });
   Batcher batcher(mntest.num());
 
-  unsigned int batchsize = 64;
+  
+  unsigned int batchsize = 256;
   DTime dt;
 
   NNArray<fvector<8>, 28, 28> img8;
   NNArray<fvector<8>, 26, 1> scores8; // this should be easier to transpose
   NNArray<fvector<8>, 1, 26> expected8;
-  
+  cout<<"Start scoring against validation set\n";
   dt.start();
   float totLoss = 0.0;
   for(unsigned int macrobatch = 0 ; macrobatch < batchsize/8; ++macrobatch) {
@@ -59,7 +56,7 @@ void scoreModel(W& w8, const IMGPROJ& imgproj, const SCOPROJ& scoresproj, const 
     img8.zero();
     for(int n =0 ; n < 8 ; ++n) {
       int idx = minibatch.at(n);
-      g_trained++;
+      g_progress.trained++;
       mntest.pushImage(idx, img8, n); 
       label.v[n] = mntest.getLabel(idx) - 1;  // a == 1..
       expected8(0, label.v[n]).impl->d_val.v[n] = 1; // "one hot vector"
@@ -87,8 +84,23 @@ void scoreModel(W& w8, const IMGPROJ& imgproj, const SCOPROJ& scoresproj, const 
 
 int main(int argc, char** argv)
 {
-  feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW );
+  //  feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW );
 
+  auto hp = make_shared<HyperParameters>();
+  hp->lr = 0.005;
+  hp->batchMult = 8;
+  hp->momentum = 0.5;
+  g_hyper = hp;
+
+  g_progress.losses.resize(1000);
+  g_progress.corrects.resize(1000);
+  for(auto& i : g_progress.losses)
+    i=NAN;
+  for(auto& i : g_progress.corrects)
+    i=NAN;
+  
+  std::thread graphThread(graphicsThread);
+  
   string kind = "letters"; // or digits
   MNISTReader mn("gzip/emnist-"+kind+"-train-images-idx3-ubyte.gz", "gzip/emnist-"+kind+"-train-labels-idx1-ubyte.gz");
 
@@ -97,6 +109,7 @@ int main(int argc, char** argv)
   cout<<"Have "<<mn.num()<<" images for training, "<<mntest.num()<<" for validation"<<endl;
   
   TheModel::State s;
+  
 
   if(argc > 1) {
     cout<<"Loading model state from "<<argv[1]<<endl;
@@ -127,6 +140,13 @@ int main(int argc, char** argv)
   auto expproj = makeProj(expected, w);
 
   s.makeProj(w);
+  cout<<s.fc1.d_weights(0,0).getVal()<<endl;
+  TheModel::State gather = s;
+  cout<<s.fc1.d_weights(0,0).getVal()<<endl;
+  cout<<gather.fc1.d_weights(0,0).getVal()<<endl;
+  gather.reset(); // uncouple
+  cout<<s.fc1.d_weights(0,0).getVal()<<endl;
+
   
   auto w8 = mod->loss.getWork<fvector<8>>(topo);  
   mod.reset(); // save memory, although actual cleanup only follows later
@@ -141,27 +161,28 @@ int main(int argc, char** argv)
   
   unsigned int batchno=0;
   ofstream tcsv("training2.csv");
-  tcsv<<"batchno,corperc,avgloss"<<endl;
+  tcsv<<"batchno,corperc,avgloss,batchsize,lr,momentum"<<endl;
+
+  s.zeroGrad(); 
   
   for(;;) { // start a new epoch
     Batcher batcher(mn.num()); // badgerbadger
 
     for(;;) { // start a new batch
+      hp = g_hyper; // possibly updated parameters
+      
       std::atomic<unsigned int> corrects = 0, wrongs=0;
-      s.zeroGrad(); // we accumulate grads here
+
+      gather.zeroGrad(); // we accumulate grads here
       s.projForward(w8);
 
-      if(!(batchno%32))
+      if(!(batchno%64))
         scoreModel(w8, imgproj, scoresproj, expproj, mntest, batchno);
-    
-
       
       DTime dt;
       dt.start();
       float totLoss = 0.0;
-      for(unsigned int macrobatch = 0 ; macrobatch < batchsize/8; ++macrobatch) {
-        //      if(!((tries+0) %32))
-        //scoreModel<TheModel, TheModel::State>(s, mntest, batchno);
+      for(unsigned int macrobatch = 0 ; macrobatch < hp->getBatchSize()/8; ++macrobatch) {
         DTime dt;
         dt.start();
         auto minibatch = batcher.getBatch(8);
@@ -173,7 +194,7 @@ int main(int argc, char** argv)
         fvector<8> label = 0;
         for(int n =0 ; n < 8 ; ++n) {
           int idx = minibatch.at(n);
-          g_trained++;
+          g_progress.trained++;
           mn.pushImage(idx, img8, n); 
           label.v[n] = mn.getLabel(idx) - 1;  // a == 1..
           expected8(0, label.v[n]).impl->d_val.v[n] = 1; // "one hot vector"
@@ -207,24 +228,31 @@ int main(int argc, char** argv)
           else
             wrongs++;
         }
-        s.projBackGrad(w8);
+        gather.projBackGrad(w8);
         w8.zeroGrad();
       }
       // done with a whole batch
       
       double perc = 100.0*corrects/(corrects+wrongs);
-      cout<<"Percent batch correct: "<<perc<<"%, average loss: "<<totLoss/batchsize <<endl;
-      g_losses.reserve(1024);
-      g_losses.push_back(totLoss/batchsize);
+      cout<<"Percent batch correct: "<<perc<<"%, average loss: "<<totLoss/hp->getBatchSize() <<endl;
+      g_progress.losses[batchno % g_progress.losses.size()]=(totLoss/hp->getBatchSize());
+      g_progress.corrects[batchno % g_progress.losses.size()]= perc;
+
+      for(int wo = 1 ; wo < 5; ++wo) {
+        g_progress.losses[(batchno+wo) % g_progress.losses.size()]=NAN;
+        g_progress.corrects[(batchno+wo) % g_progress.losses.size()]= NAN;
+      }  
       
-      tcsv << batchno <<"," << perc << ", " << totLoss / batchsize << endl; 
+      tcsv << batchno << "," << perc << ", " << totLoss / hp->getBatchSize() << ","<<hp->getBatchSize()<<","<<hp->lr<<","<<hp->momentum<<endl; 
       
-      double lr=g_lr/batchsize; // mnist.cpp has 0.01, plus "momentum" of 0.5, which we don't have
+      double lr=hp->lr/hp->getBatchSize(); // mnist.cpp has 0.01, plus "momentum" of 0.5, which we don't have
+
+      s.momentum(gather, hp->momentum);
       s.learn(lr);
-      s.zeroGrad();
+      //      s.zeroGrad();
       batchno++;
-      g_lastBatchTook = dt.lapUsec()/1000000.0;
-      cout<<g_lastBatchTook<<" seconds/batch of " << batchsize << endl;;
+      g_progress.lastTook = dt.lapUsec()/1000000.0;
+      cout<<g_progress.lastTook<<" seconds/batch of " << hp->getBatchSize() <<", lr = "<<hp->lr<<", momentum = "<<hp->momentum<< endl;;
       saveModelState(s, "worker-convo-avx.state");
     }
   batcherEmpty:

@@ -287,7 +287,7 @@ TEST_CASE("cross entropy") {
   in(3,0)=1;
 
   auto logscores = in.logSoftMax();
-  //  cout<<"Logscores:\n"<<logscores<<endl;
+  cout<<"arraytests.c Logscores:\n"<<logscores<<endl;
 
   NNArray<float, 1, 4> expected;
   expected.zero();
@@ -295,16 +295,18 @@ TEST_CASE("cross entropy") {
   //  cout<<"Expected: "<<expected<<endl;
   auto loss = TrackedFloat(0) - (expected*logscores)(0,0);
   auto oldloss = loss.getVal();
-  //  cout<<"Loss: "<<loss.getVal()<<endl;
+  cout<<"Loss: "<<loss.getVal()<<endl;
   loss.backward();
 
-  //  cout << in(0,0).getGrad()<<endl;
-  //  cout << in(1,0).getGrad()<<endl;
-
+  cout << in(0,0).getGrad()<<endl;
+  cout << in(1,0).getGrad()<<endl;
+  cout << in(2,0).getGrad()<<endl;
+  cout << in(3,0).getGrad()<<endl;
+  
   // "learn a bit"
   in(0,0) = in(0,0).getVal() - 0.2 * in(0,0).getGrad();
   loss.zeroGrad();
-  //  cout<<"New loss: "<<loss.getVal() << endl;
+  cout<<"New loss: "<<loss.getVal() << endl;
   CHECK(loss.getVal() < oldloss);
 }
 

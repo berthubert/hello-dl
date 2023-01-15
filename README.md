@@ -61,6 +61,8 @@ Despite doing some neural network experiments in the 1990s, I'm extremely new to
 <!-- GRU https://blog.floydhub.com/gru-with-pytorch/ -->
 <!-- GRU paper https://arxiv.org/pdf/1406.1078.pdf -->
 <!-- https://arxiv.org/pdf/2212.14034.pdf large language models on smaller systems -->
+<!-- https://github.com/coin-or/ADOL-C - automatic differentiation -->
+
 # Status
 So far this implements a small but pretty nice autograd system. In
 `first-convo.cc` you can find a ~1100 line total computer program that

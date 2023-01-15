@@ -27,11 +27,31 @@ struct CNNAlphabetModel  {
     Linear<T, 64, 128> fc2;
     Linear<T, 128, 26> fc3;
 
+        // this has GRAVE issues with copying
     State() 
+    {    // this has GRAVE issues with copying
+      d_members={&c1, &c2, &c3, &fc1, &fc2, &fc3};
+    }
+    // this has GRAVE issues with copying
+    State(const State& rhs) 
     {
+      c1=rhs.c1;
+      c2=rhs.c2;
+      c3=rhs.c3;
+      fc1=rhs.fc1;
+      fc2=rhs.fc2;
+      fc3=rhs.fc3;
       d_members={&c1, &c2, &c3, &fc1, &fc2, &fc3};
     }
 
+    State& operator=(const State& rhs) = delete;
+    
+    void reset()
+    {
+      for(auto& m : d_members)
+        m->reset();
+    }
+    
     void addGrad(const State& rhs)
     {
       c1.addGrad(rhs.c1);
@@ -53,6 +73,18 @@ struct CNNAlphabetModel  {
       fc2.setGrad(rhs.fc2, divisor);
       fc3.setGrad(rhs.fc3, divisor);
     }
+
+    void momentum(const State& rhs, float mom, float dampening=0)
+    {
+      c1.momGrad(rhs.c1, mom, dampening);
+      c2.momGrad(rhs.c2, mom, dampening);
+      c3.momGrad(rhs.c3, mom, dampening);
+
+      fc1.momGrad(rhs.fc1, mom, dampening);
+      fc2.momGrad(rhs.fc2, mom, dampening);
+      fc3.momGrad(rhs.fc3, mom, dampening);
+    }
+
     
     template<typename W>
     void makeProj(const W& w)

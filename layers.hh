@@ -10,6 +10,7 @@ struct LayerBase
   virtual void load(std::istream& in)=0;
   virtual void learn(float lr) = 0;
   virtual void zeroGrad() = 0;
+  virtual void reset();
   virtual unsigned int size() const = 0;
 };
 
@@ -33,6 +34,14 @@ struct Linear : LayerBase
     d_bias.needsGrad();
   }
 
+  void reset() // "Xavier initialization"  http://proceedings.mlr.press/v9/glorot10a/glorot10a.pdf
+  {
+    d_weights.reset();
+    d_bias.reset();
+
+  }
+
+  
   unsigned int size() const override
   {
     return d_weights.size() + d_bias.size();
@@ -56,6 +65,11 @@ struct Linear : LayerBase
     d_bias.setGradCons(rhs.d_bias.getGrad()/divisor);
   }
 
+  void momGrad(const Linear& rhs, float momentum, float dampening = 0)
+  {
+    d_weights.setGrad(d_weights.getGrad()*momentum + rhs.d_weights.getGrad() * (1 - dampening));
+    d_bias.setGrad( d_bias.getGrad() * momentum + rhs.d_bias.getGrad() * (1 - dampening));
+  }
   
   auto forward(const NNArray<T, IN, 1>& in)
   {
@@ -134,6 +148,16 @@ struct Conv2d : LayerBase
     }
   }
 
+  void reset()
+  {
+    for(auto& f : d_filters) {
+      f.reset();
+    }
+    for(auto& b : d_bias) {
+      b.reset();
+    }
+  }
+
   unsigned int size() const override
   {
     unsigned int ret = 0;
@@ -169,7 +193,13 @@ struct Conv2d : LayerBase
       d_bias[i].setGradCons(rhs.d_bias[i].getGrad()/divisor);
   }
 
-  
+  void momGrad(const Conv2d& rhs, float momentum, float dampening = 0)
+  {
+    for(size_t i = 0 ; i < d_filters.size(); ++i)
+      d_filters[i].setGrad(  rhs.d_filters[i].getGrad() *(1-dampening) + d_filters[i].getGrad() * (momentum));
+    for(size_t i = 0 ; i < d_bias.size(); ++i)
+      d_bias[i].setGrad(  rhs.d_bias[i].getGrad()*(1-dampening) + d_bias[i].getGrad() * momentum);
+  }
   
   auto forward(NNArray<T, ROWS, COLS>& in)
   {

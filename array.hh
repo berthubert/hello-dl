@@ -6,6 +6,7 @@
 template<typename T, unsigned int ROWS, unsigned int COLS>
 struct SArray
 {
+  typedef SArray<T, ROWS, COLS> us_t;
   SArray()
   {
     d_store.resize(ROWS*COLS);
@@ -42,13 +43,20 @@ struct SArray
     return d_store.at(x*COLS + y);
   }
 
-  auto operator+=(const SArray<T, ROWS, COLS>& rhs)
+  auto& operator+=(const SArray<T, ROWS, COLS>& rhs)
   {
     for(size_t pos = 0 ; pos < rhs.d_store.size(); ++pos)
       d_store[pos] += rhs.d_store[pos];
     return *this;
   }
 
+  auto operator+(const SArray<T, ROWS, COLS>& rhs) const
+  {
+    us_t ret = *this;
+    return ret += rhs;
+  }
+
+  
   auto operator/=(float val)
   {
     for(auto& v : d_store)
@@ -224,8 +232,8 @@ struct NNArray
   // wipes out all history
   void reset()
   {
-    d_store.clear();
-    d_store.resize(ROWS*COLS);
+    for(auto& v : d_store)
+      v.impl.reset();
     zero();
   }
   
