@@ -25,14 +25,14 @@ find_package(Threads REQUIRED)
 
 
 add_library(common OBJECT mnistreader.cc textsupport.cc )
-add_library(gui OBJECT ui.cc ext/imgui/imgui.cpp  ext/imgui/imgui_demo.cpp  ext/imgui/imgui_draw.cpp  ext/imgui/imgui_tables.cpp  ext/imgui/imgui_widgets.cpp ext/imgui/backends/imgui_impl_glfw.cpp ext/imgui/backends/imgui_impl_opengl3.cpp ext/implot-master/implot.cpp ext/implot-master/implot_items.cpp ext/implot-master/implot_demo.cpp)
+#add_library(gui OBJECT ui.cc ext/imgui/imgui.cpp  ext/imgui/imgui_demo.cpp  ext/imgui/imgui_draw.cpp  ext/imgui/imgui_tables.cpp  ext/imgui/imgui_widgets.cpp ext/imgui/backends/imgui_impl_glfw.cpp ext/imgui/backends/imgui_impl_opengl3.cpp ext/implot-master/implot.cpp ext/implot-master/implot_items.cpp ext/implot-master/implot_demo.cpp)
 
 
-add_executable(tensor tensor.cc)
-target_link_libraries(tensor z  common)
+#add_executable(tensor tensor.cc)
+#target_link_libraries(tensor z  common)
 
-add_executable(first-relu first-relu.cc )
-target_link_libraries(first-relu z  common)
+#add_executable(first-relu first-relu.cc )
+#target_link_libraries(first-relu z  common)
 
 add_executable(tensor-relu tensor-relu.cc )
 target_link_libraries(tensor-relu z  common Eigen3::Eigen )
@@ -45,36 +45,36 @@ add_executable(tensor-gru tensor-gru.cc )
 target_link_libraries(tensor-gru z  common Eigen3::Eigen )
 
 
-add_executable(first-convo first-convo.cc )
-target_link_libraries(first-convo z  common)
+#add_executable(first-convo first-convo.cc )
+#target_link_libraries(first-convo z  common)
 
-add_executable(modular-convo modular-convo.cc )
-target_link_libraries(modular-convo z  common)
+#add_executable(modular-convo modular-convo.cc )
+#target_link_libraries(modular-convo z  common)
 
-add_executable(modular-linear-convo modular-linear-convo.cc )
-target_link_libraries(modular-linear-convo z  common)
-
-
-add_executable(worker-convo worker-convo.cc  )
-target_link_libraries(worker-convo  z  common)
-
-add_executable(worker-convo-avx worker-convo-avx.cc)
-target_link_libraries(worker-convo-avx  z  common gui GL glfw)
-
-add_executable(worker-convo-avx-threaded worker-convo-avx-threaded.cc )
-target_link_libraries(worker-convo-avx-threaded z  common)
+#add_executable(modular-linear-convo modular-linear-convo.cc )
+#target_link_libraries(modular-linear-convo z  common)
 
 
-add_executable(modular-threaded-convo modular-threaded-convo.cc )
-target_link_libraries(modular-threaded-convo z  common)
+#add_executable(worker-convo worker-convo.cc  )
+#target_link_libraries(worker-convo  z  common)
+
+#add_executable(worker-convo-avx worker-convo-avx.cc)
+#target_link_libraries(worker-convo-avx  z  common gui GL glfw)
+
+#add_executable(worker-convo-avx-threaded worker-convo-avx-threaded.cc )
+#target_link_libraries(worker-convo-avx-threaded z  common)
 
 
-add_executable(try-convo try-convo.cc )
-target_link_libraries(try-convo z  common)
+#add_executable(modular-threaded-convo modular-threaded-convo.cc )
+#target_link_libraries(modular-threaded-convo z  common)
 
 
-add_executable(los los.cc )
-target_link_libraries(los z  common)
+#add_executable(try-convo try-convo.cc )
+#target_link_libraries(try-convo z  common)
+
+
+#add_executable(los los.cc )
+#target_link_libraries(los z  common)
 
 add_executable(los2 los2.cc )
 target_link_libraries(los2 z  common)

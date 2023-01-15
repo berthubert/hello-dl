@@ -1,6 +1,7 @@
 #pragma once
 #include "tensor2.hh"
 #include <unistd.h>
+#include <fstream>
 
 template<typename T>
 struct TensorLayer
@@ -66,11 +67,11 @@ struct Conv2d : TensorLayer<T>
   {
     for(auto& f : d_filters) {
       f = Tensor<T>(KERNEL, KERNEL);
-      this->d_members.push_back(&f);
+      this->d_params.push_back(&f);
     }
     for(auto& b : d_bias) {
       b = Tensor<T>(1,1);
-      this->d_members.push_back(&b);
+      this->d_params.push_back(&b);
     }
         
     randomize();
