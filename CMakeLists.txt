@@ -84,7 +84,7 @@ target_link_libraries(los3 z  common)
 
 find_package (Eigen3 3.3 REQUIRED NO_MODULE)
 
-add_executable(testrunner testrunner.cc arraytests.cc testfvector.cc grutest.cc workertest.cc tensor2test.cc)
+add_executable(testrunner testrunner.cc arraytests.cc testfvector.cc grutest.cc workertest.cc tensor2test.cc tensormodtest.cc)
 
 target_link_libraries(testrunner  z  common Eigen3::Eigen)
 

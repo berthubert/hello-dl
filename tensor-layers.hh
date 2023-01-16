@@ -2,6 +2,7 @@
 #include "tensor2.hh"
 #include <unistd.h>
 #include <fstream>
+#include <vector>
 
 template<typename T>
 struct TensorLayer
@@ -117,13 +118,49 @@ struct Conv2d : TensorLayer<T>
   }
 };
 
+template<typename T>
+struct ModelState
+{
+  ModelState() {}
+  ModelState(const ModelState&) = delete;
+  ModelState& operator=(const ModelState& rhs) = delete;
+  void randomize()
+  {
+    for(auto& m : d_members)
+      m->randomize();
+  }
+  void learn(float lr)
+  {
+    for(auto& m : d_members)
+      m->learn(lr);
+  }
+
+  void save(std::ostream& out) const
+  {
+    for(const auto& m : d_members)
+      m->save(out);
+  }
+  void load(std::istream& in)
+  {
+    for(auto& m : d_members)
+      m->load(in);
+  }
+
+  std::vector<TensorLayer<T>*> d_members;
+};
+
+
 template<typename MS>
 void saveModelState(const MS& ms, const std::string& fname)
 {
   std::ofstream ofs(fname+".tmp");
   if(!ofs)
     throw std::runtime_error("Can't save model to file "+fname+".tmp: "+strerror(errno));
+  std::array<float, 2>v={12345.0, 67890.0}; // magic begin
+  ofs.write((const char*)&v[0], 2*sizeof(float));
   ms.save(ofs);
+  v={9876.0,54321.0}; // magic end
+  ofs.write((const char*)&v[0], 2*sizeof(float));
   ofs.flush();
   ofs.close();
   unlink(fname.c_str());
@@ -136,5 +173,13 @@ void loadModelState(MS& ms, const std::string& fname)
   std::ifstream ifs(fname);
   if(!ifs)
     throw std::runtime_error("Can't read model state from file "+fname+": "+strerror(errno));
+  float v[2]={};
+  ifs.read((char*)v, 2*sizeof(float));
+  if(v[0] != 12345 || v[1] != 67890)
+    throw std::runtime_error("Model state has wrong begin magic, "+std::to_string(v[0])+", "+std::to_string(v[1]));
   ms.load(ifs);
+  ifs.read((char*)v, 2*sizeof(float));
+  if(v[0] != 9876 || v[1] != 54321)
+    throw std::runtime_error("Model state has wrong end magic, "+std::to_string(v[0])+", "+std::to_string(v[1]));
+
 }
