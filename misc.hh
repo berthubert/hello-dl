@@ -8,6 +8,7 @@
 #include <mutex>
 #include <memory>
 #include <atomic>
+#include <optional>
 
 struct HyperParameters
 {
@@ -36,12 +37,12 @@ int graphicsThread();
 class Batcher
 {
 public:
-  explicit Batcher(int n)
+  explicit Batcher(int n, std::optional<std::mt19937> rng=std::optional<std::mt19937>())
   {
     for(int i=0; i < n ; ++i)
       d_store.push_back(i);
 
-    randomize();
+    randomize(rng);
   }
 
   explicit Batcher(const std::vector<int>& in)
@@ -75,12 +76,16 @@ public:
 private:
   std::deque<int> d_store;
   std::mutex d_mut;
-  void randomize()
+  void randomize(std::optional<std::mt19937> rnd = std::optional<std::mt19937>())
   {
-    std::random_device rd;
-    std::mt19937 g(rd());
- 
-    std::shuffle(d_store.begin(), d_store.end(), g);
+    if(rnd) {
+      std::shuffle(d_store.begin(), d_store.end(), *rnd);
+    }
+    else {
+      std::random_device rd;
+      std::mt19937 g(rd());
+      std::shuffle(d_store.begin(), d_store.end(), g);
+    }
   }
 
 };
