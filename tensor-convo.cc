@@ -8,6 +8,8 @@
 #include "misc.hh"
 #include <fenv.h>
 #include "tensor-layers.hh"
+#include <time.h>
+#include "ext/sqlitewriter/sqlwriter.hh"
 using namespace std;
 
   
@@ -17,36 +19,21 @@ struct ConvoAlphabetModel {
   Tensor<float> expected{1,26};
   Tensor<float> loss{1,1};
   Tensor<float> rawscores;
-  struct State
+  struct State : public ModelState<float>
   {
     //           r_in c   k c_i  c_out
     Conv2d<float, 28, 28, 3, 1,  32> c1; // -> 26*26 -> max2d -> 13*13
     Conv2d<float, 13, 13, 3, 32, 64> c2; // -> -> 11*11 -> max2d -> 6*6 //padding
     Conv2d<float, 6,   6, 3, 64, 128> c3; // -> 4*4 -> max2d -> 2*2
-    // flattened to 512
+    // flattened to 512 (128*2*2)
            //      IN OUT
     Linear<float, 512, 64> fc1;  
     Linear<float, 64, 128> fc2;
     Linear<float, 128, 26> fc3; 
-    
-    void randomize()
-    {
-      c1.randomize();
-      c2.randomize();
-      c3.randomize();
-      fc1.randomize();
-      fc2.randomize();
-      fc3.randomize();
-    }
 
-    void learn(float lr)
+    State()
     {
-      c1.learn(lr);
-      c2.learn(lr);
-      c3.learn(lr);
-      fc1.learn(lr);
-      fc2.learn(lr);
-      fc3.learn(lr);
+      this->d_members = {&c1, &c2, &c3, &fc1, &fc2, &fc3};
     }
   };
   
@@ -89,16 +76,16 @@ struct ConvoAlphabetModel {
 };
 
 template<typename M>
-void testModel(M& m, const MNISTReader& mn, int batchno)
+void testModel(M& m, const MNISTReader& mn, int batchno, std::mt19937& rangen)
 {
-  static ofstream vcsv("validation3.csv");
+  static ofstream vcsv("validation4.csv");
   static bool first=true;
   if(first) {
-    vcsv<<"batchno,corperc,avgloss\n";
+    vcsv<<"batchno,cputime,corperc,avgloss\n";
     first=false;
   }
 
-  Batcher b(mn.num());
+  Batcher b(mn.num(), rangen);
   auto batch = b.getBatch(128);
   float totalLoss=0;
   int corrects=0, wrongs=0;
@@ -129,7 +116,7 @@ void testModel(M& m, const MNISTReader& mn, int batchno)
   }
   double perc=100.0*corrects/(corrects+wrongs);
   cout<<"Validation batch average loss: "<<totalLoss/batch.size()<<", percentage correct: "<<perc<<", took "<<dt.lapUsec()/1000<<" ms for "<<batch.size()<<" images\n";
-  vcsv << batchno <<"," << perc << ", " << totalLoss/batch.size() << endl; 
+  vcsv << batchno <<","<< clock()/CLOCKS_PER_SEC<<","<< perc << ", " << totalLoss/batch.size() << endl;
 }
 
 int main()
@@ -144,37 +131,74 @@ int main()
 
   ConvoAlphabetModel m;
   ConvoAlphabetModel::State s;
-  srandom(time(0));
+  srandom(0);
   s.randomize();
+
+  //  std::random_device rd;
+  //  std::mt19937 rangen(rd());
+  std::mt19937 rangen(0);
+
+  
   //  cout<<s.fc1.d_weights<<endl;
   m.init(s);
 
   auto topo = m.loss.getTopo();
   cout<<"Topo.size(): "<<topo.size()<<endl;
 
-  std::unordered_map<int, int> tcounts;
-  for(const auto& t : topo) {
-    tcounts[(int)t->d_mode]++;
-  }
-  for(const auto& tc: tcounts) {
-    cout<<tc.first<<": "<<tc.second<<endl;
-  }
-  return 0;
-  ofstream tcsv("training3.csv");
-  tcsv<<"batchno,corperc,avgloss,batchsize,lr,momentum"<<endl;
+  ofstream tcsv("training4.csv");
+  tcsv<<"batchno,cputime,corperc,avgloss,batchsize,lr,momentum"<<endl;
 
+  SQLiteWriter sqw("convo-vals.sqlite3");
+  int64_t startID=time(0);
+  
   int batchno = 0;
+
   for(;;) {
-    Batcher batcher(mn.num());
-    
+    Batcher batcher(mn.num(), rangen);
+
     DTime dt;
     for(unsigned int tries = 0 ;; ++tries) {
-      if(!(tries % 32))
-        testModel(m, mntest, batchno);
-      dt.start();
       auto batch = batcher.getBatch(64);
       if(batch.empty())
         break;
+
+      if(!(tries % 32)) {
+        testModel(m, mntest, batchno, rangen);
+        saveModelState(s, "tensor-convo.state");
+
+        int pos = 0;
+        auto emit = [&sqw, &startID, &pos, &batchno, &batch](const auto& t, string_view name) {
+          for(unsigned int r = 0 ; r < t.d_imp->d_val.rows(); ++r) {
+            for(unsigned int c = 0 ; c < t.d_imp->d_val.cols(); ++c) {
+              sqw.addValue({
+                  {"batchno", batchno},
+                  {"pos", pos},
+                  {"val", t.d_imp->d_val(r,c)},
+                  {"grad", t.d_imp->d_accumgrads(r,c)/batch.size()},
+                  {"name", (string)name + "(" + std::to_string(r)+"," + std::to_string(c)+")"},
+                  {"startID", startID}});
+              ++pos;
+            }
+          }
+        };
+        int fcount=0;
+        for(const auto& f: s.c1.d_filters)
+          emit(f, "c1["+std::to_string(fcount++)+"]");
+        fcount=0;
+        for(const auto& f: s.c2.d_filters)
+          emit(f, "c2["+std::to_string(fcount++)+"]");
+        fcount=0;
+        for(const auto& f: s.c3.d_filters)
+          emit(f, "c3["+std::to_string(fcount++)+"]");
+        
+        emit(s.fc1.d_weights, "fc1");
+        emit(s.fc2.d_weights, "fc2");
+        emit(s.fc3.d_weights, "fc3");
+      }
+      dt.start();
+      
+      batchno++;
+
       float totalLoss = 0;
       unsigned int corrects=0, wrongs=0;
       
@@ -207,11 +231,11 @@ int main()
         m.loss.zerograd(topo);
       }
       double perc = 100.0*corrects/(corrects+wrongs);
-      cout<<"Batch "<<batchno<<" average loss " << totalLoss/batch.size()<<", percent batch correct "<<perc<<"%, "<<dt.lapUsec()/1000<<"ms/batch"<<endl;
-      
+      cout<<"Batch "<<batchno<<" average loss " << totalLoss/batch.size()<<", percent batch correct "<<perc<<"%, "<<0*dt.lapUsec()/1000<<"ms/batch"<<endl;
+
       double lr=0.01 / batch.size();
       s.learn(lr);
-      tcsv << batchno << "," << perc << ", " << totalLoss / batch.size() << ","<< batch.size() <<","<<lr*batch.size()<<","<<0<<endl; 
+      tcsv << batchno << "," << clock()/CLOCKS_PER_SEC<<","<< perc << ", " << totalLoss / batch.size() << ","<< batch.size() <<","<<lr*batch.size()<<","<<0<<endl; 
     }
   }
 }

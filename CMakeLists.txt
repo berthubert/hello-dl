@@ -37,8 +37,8 @@ add_library(common OBJECT mnistreader.cc textsupport.cc )
 add_executable(tensor-relu tensor-relu.cc )
 target_link_libraries(tensor-relu z  common Eigen3::Eigen )
 
-add_executable(tensor-convo tensor-convo.cc )
-target_link_libraries(tensor-convo z  common Eigen3::Eigen )
+add_executable(tensor-convo tensor-convo.cc ext/sqlitewriter/sqlwriter.cc )
+target_link_libraries(tensor-convo z  common Eigen3::Eigen sqlite3) 
 
 
 add_executable(tensor-gru tensor-gru.cc )

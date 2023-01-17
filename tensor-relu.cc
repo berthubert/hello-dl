@@ -10,37 +10,6 @@
 #include "tensor-layers.hh"
 using namespace std;
 
-template<typename T>
-struct ModelState
-{
-  ModelState() {}
-  ModelState(const ModelState&) = delete;
-  ModelState& operator=(const ModelState& rhs) = delete;
-  void randomize()
-  {
-    for(auto& m : d_members)
-      m->randomize();
-  }
-  void learn(float lr)
-  {
-    for(auto& m : d_members)
-      m->learn(lr);
-  }
-
-  void save(std::ostream& out) const
-  {
-    for(const auto& m : d_members)
-      m->save(out);
-  }
-  void load(std::istream& in)
-  {
-    for(auto& m : d_members)
-      m->load(in);
-  }
-
-  
-  std::vector<TensorLayer<T>*> d_members;
-};
   
 struct ReluDigitModel {
   Tensor<float> img{28,28};
@@ -57,8 +26,6 @@ struct ReluDigitModel {
     {
       this->d_members = {&lc1, &lc2, &lc3};
     }
-    
-    
   };
   
   void init(State& s)
