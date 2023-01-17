@@ -358,7 +358,7 @@ struct TensorImp
     else abort();
   }
   
-  mutable Eigen::MatrixX<T> d_val, d_grads, d_accumgrads;
+  mutable Eigen::MatrixX<T> d_val, d_grads, d_prevaccumgrads, d_accumgrads;
   std::function<T(T)> d_func, d_deriv;
   std::shared_ptr<us_t> d_lhs, d_rhs;
   TMode d_mode;
@@ -438,32 +438,29 @@ struct Tensor
 
   void zerograd(std::vector<TensorImp<T>*> topo=0)
   {
-    for(auto iter = topo.rbegin(); iter != topo.rend(); ++iter) { 
+    for(auto iter = topo.rbegin(); iter != topo.rend(); ++iter) {
       (*iter)->d_grads.setConstant(0);
+
       if((*iter)->d_mode != TMode::Parameter)
         (*iter)->d_haveval = false;
-      if((*iter)->d_mode == TMode::Convo) // UGLY
+
+      // aren't these in topo?
+      if((*iter)->d_mode == TMode::Convo) {// UGLY
         (*iter)->d_convop.bias->d_grads(0,0)=0;
-      if((*iter)->d_mode == TMode::Flatten) // UGLY
-        for(auto& m : (*iter)->d_flattenp.members)
+      }
+
+      if((*iter)->d_mode == TMode::Flatten) {// UGLY
+        for(auto& m : (*iter)->d_flattenp.members) {
           m->d_grads.setConstant(0);
-
+        }
+      }
     }
-  }
-
-  Eigen::MatrixX<T> getGrad()
-  {
-    return d_imp->d_grads;
-  }
-
-  Eigen::MatrixX<T> getAccumGrad()
-  {
-    return d_imp->d_accumgrads;
   }
 
   void zeroAccumGrads(std::vector<TensorImp<T>*> topo)
   {
-    for(auto iter = topo.rbegin(); iter != topo.rend(); ++iter) { 
+    for(auto iter = topo.rbegin(); iter != topo.rend(); ++iter) {
+      (*iter)->d_prevaccumgrads = (*iter)->d_accumgrads;
       (*iter)->d_accumgrads = Eigen::MatrixX<T>::Constant((*iter)->d_grads.rows(), (*iter)->d_grads.cols(), 0.0F);
     }
   }
@@ -474,6 +471,24 @@ struct Tensor
       (*iter)->d_accumgrads += (*iter)->d_grads;
     }
   }
+
+  
+  Eigen::MatrixX<T> getGrad()
+  {
+    return d_imp->d_grads;
+  }
+
+  Eigen::MatrixX<T> getPrevAccumGrad()
+  {
+    return d_imp->d_prevaccumgrads;
+  }
+
+  
+  Eigen::MatrixX<T> getAccumGrad()
+  {
+    return d_imp->d_accumgrads;
+  }
+
   
   void randomize(float fact)
   {
