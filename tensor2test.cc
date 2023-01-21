@@ -635,3 +635,70 @@ TEST_CASE("tensor save and load")
   CHECK(diff.sum()(0,0) ==  0);
   
 }
+
+TEST_CASE("relu")
+{
+  Tensor x(1,1);
+  x(0,0) = 0;
+  auto relu=makeFunction<ReluFunc>(x);
+  CHECK(relu(0,0) == 0);
+  auto topo = relu.getTopo();
+  relu.zerograd(topo);
+  x(0,0) = 12;
+  CHECK(relu(0,0) == 12);
+  relu.zerograd(topo);
+  x(0,0) = -12;
+  CHECK(relu(0,0) == 0);
+
+}
+
+TEST_CASE("gelu")
+{
+  Tensor x(1,1);
+  x(0,0) = 0;
+  auto gelu=makeFunction<GeluFunc>(x);
+  CHECK(gelu(0,0) == 0);
+  
+  auto topo = gelu.getTopo();
+
+  gelu.zerograd(topo);
+  x(0,0) = 12;
+  CHECK(gelu(0,0) == 12);
+  
+  gelu.zerograd(topo);
+  x(0,0) = -50;
+  CHECK(gelu(0,0) == doctest::Approx(0.0));
+
+  gelu.zerograd(topo);
+  x(0,0) = 50;
+  CHECK(gelu(0,0) == doctest::Approx(50.0));
+
+
+  gelu.zerograd(topo);
+  x(0,0) = 0;
+  gelu.backward(topo);
+  CHECK(x.getGrad()(0,0) == doctest::Approx(0.5));
+
+  gelu.zerograd(topo);
+  x(0,0) = 50;
+  gelu.backward(topo);
+  CHECK(x.getGrad()(0,0) == doctest::Approx(1.0));
+
+  gelu.zerograd(topo);
+  x(0,0) = -50;
+  gelu.backward(topo);
+  CHECK(x.getGrad()(0,0) == doctest::Approx(0.0));
+
+  gelu.zerograd(topo);
+  x(0,0) = 1;
+  gelu.backward(topo);
+  CHECK(x.getGrad()(0,0) == doctest::Approx(1.0833));
+
+  gelu.zerograd(topo);
+  x(0,0) = -1;
+  gelu.backward(topo);
+  CHECK(x.getGrad()(0,0) == doctest::Approx(-0.0833155));
+
+  
+  
+}
