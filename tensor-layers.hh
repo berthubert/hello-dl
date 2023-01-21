@@ -54,6 +54,12 @@ struct Linear : public TensorLayer<T>
   {
     return d_weights * in + d_bias;
   }
+
+  auto SquaredWeightsSum()
+  {
+    return makeFunction<SquareFunc>(d_weights).sum();
+  }
+
 };
 
 
