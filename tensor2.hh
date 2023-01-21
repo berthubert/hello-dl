@@ -41,6 +41,36 @@ struct ReluFunc
   }
 };
 
+// this is the 'slow' version
+// https://alaaalatif.github.io/2019-04-11-gelu/ has some partially confusing words
+struct GeluFunc
+{
+  static constexpr float invsqrt2 = .70710678118654752440; // 1/sqrt(2)
+  static float func(float f)
+  {
+    return 0.5*f*(1+erff(f*invsqrt2));  
+    
+  }
+  static float deriv(float f)
+  {
+    constexpr float invsqrt2pi = 0.3989422804014327; // 1/sqrt(2*3.1415)
+    return (1+erff(f*invsqrt2))/2 + f * expf(-0.5*f*f) * invsqrt2pi;
+  }
+};
+
+struct SquareFunc
+{
+  static float func(float f)
+  {
+    return f*f;
+  }
+  static float deriv(float f)
+  {
+    return 2*f;
+  }
+};
+
+
 struct TanhFunc
 {
   static float func(float f)
@@ -502,6 +532,12 @@ struct Tensor
     d_imp->d_mode = TMode::Parameter;
     d_imp->d_val = Eigen::MatrixX<T>::Zero(d_imp->d_val.rows(), d_imp->d_val.cols()); 
   }
+  void oneHotColumn(int c)
+  {
+    zero();
+    d_imp->d_val(0,c) = 1;
+  }
+
   void constant(float f)
   {
     d_imp->d_mode = TMode::Parameter;
