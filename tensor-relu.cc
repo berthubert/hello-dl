@@ -24,7 +24,7 @@ struct ReluDigitModel {
 
     State()
     {
-      this->d_members = {&lc1, &lc2, &lc3};
+      this->d_members = {{&lc1, "lc1"}, {&lc2, "lc2"}, {&lc3, "lc3"}};
     }
   };
   

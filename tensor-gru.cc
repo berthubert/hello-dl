@@ -24,7 +24,7 @@ using namespace std;
 // https://pytorch.org/docs/stable/generated/torch.nn.GRU.html
 
 template<typename T, unsigned int IN, unsigned int HIDDEN>
-struct GRULayer 
+struct GRULayer : TensorLayer<T>
 {
   Tensor<T> d_w_ir{HIDDEN, IN}; // reset
   Tensor<T> d_w_iz{HIDDEN, IN}; // update
@@ -36,9 +36,11 @@ struct GRULayer
 
   Tensor<T> d_prevh{HIDDEN, 1};
 
-
   GRULayer()
   {
+    this->d_params={
+        {&d_w_ir, "w_ir"},         {&d_w_iz, "w_iz"},         {&d_w_in, "w_in"},
+        {&d_w_hr, "w_hr"},         {&d_w_hz, "w_hz"},         {&d_w_hn, "w_hn"}};
     randomize();
   }
 
@@ -61,17 +63,6 @@ struct GRULayer
     return h_t;
   }
 
-  void learn(float lr) 
-  {
-    { auto grad1 = d_w_ir.getAccumGrad(); grad1 *= lr; d_w_ir -= grad1;  }
-    { auto grad1 = d_w_iz.getAccumGrad(); grad1 *= lr; d_w_iz -= grad1;  }
-    { auto grad1 = d_w_in.getAccumGrad(); grad1 *= lr; d_w_in -= grad1;  }
-    
-    { auto grad1 = d_w_hr.getAccumGrad(); grad1 *= lr; d_w_hr -= grad1;  }
-    { auto grad1 = d_w_hz.getAccumGrad(); grad1 *= lr; d_w_hz -= grad1;  }
-    { auto grad1 = d_w_hn.getAccumGrad(); grad1 *= lr; d_w_hn -= grad1;  }
-  }
-
   void randomize() // "Xavier initialization"  http://proceedings.mlr.press/v9/glorot10a/glorot10a.pdf
   {
     d_w_ir.randomize(1.0/sqrt(HIDDEN));
@@ -88,18 +79,17 @@ struct GRULayer
 
 
 template<typename T>
-struct GRUModel
+struct GRUModel 
 {
-  struct State
+  struct State : ModelState<T>
   {
     GRULayer<T, 98, 256> gm1;
     GRULayer<T, 256, 256> gm2;
     Linear<T, 256, 98> fc;
-    void zeroGrad()
+
+    State()
     {
-      gm1.zeroGrad();
-      gm2.zeroGrad();
-      fc.zeroGrad();
+      this->d_members = {{&gm1, "gm1"}, {&gm2, "gm2"}, {&fc, "fc"}};
     }
     
   };
@@ -194,13 +184,12 @@ int main(int argc, char **argv)
       
       batchloss /= batchsize;
       
-      float lr=0.01/batchsize;
+      float lr=0.001/batchsize;
       cout<<"Average batch loss: "<<batchloss<<endl;
-      s.gm1.learn(lr);
-      s.gm2.learn(lr);
-      s.fc.learn(lr);
+      s.learn(lr, 0.5);
+
       cout<<"\n\n";
-      //    saveModelState(s, "los-worker.state");
+      saveModelState(s, "tensor-gru.state");
     }
   }
 }

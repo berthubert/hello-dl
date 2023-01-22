@@ -8,83 +8,14 @@
 #include "misc.hh"
 #include <fenv.h>
 #include "tensor-layers.hh"
+#include "convo-alphabet.hh"
 #include <time.h>
-#include "ext/sqlitewriter/sqlwriter.hh"
+
 using namespace std;
 
-  
-struct ConvoAlphabetModel {
-  Tensor<float> img{28,28};
-  Tensor<float> scores{26, 1};
-  Tensor<float> expected{1,26};
-  Tensor<float> loss{1,1};
-  Tensor<float> rawscores;
-  struct State : public ModelState<float>
-  {
-    //           r_in c   k c_i  c_out
-    Conv2d<float, 28, 28, 3, 1,  32> c1; // -> 26*26 -> max2d -> 13*13
-    Conv2d<float, 13, 13, 3, 32, 64> c2; // -> -> 11*11 -> max2d -> 6*6 //padding
-    Conv2d<float, 6,   6, 3, 64, 128> c3; // -> 4*4 -> max2d -> 2*2
-    // flattened to 512 (128*2*2)
-           //      IN OUT
-    Linear<float, 512, 64> fc1;  
-    Linear<float, 64, 128> fc2;
-    Linear<float, 128, 26> fc3; 
-
-    State()
-    {
-      this->d_members = {&c1, &c2, &c3, &fc1, &fc2, &fc3};
-    }
-  };
-  
-  void init(State& s)
-  {
-    img.zero();
-    img.d_imp->d_nograd=true;
-    auto step1 = s.c1.forward(img);
-    
-    std::array<Tensor<float>, 32> step2; // 13x13
-    unsigned ctr=0;
-    for(auto& p : step2)
-      p = makeFunction<ReluFunc>(step1[ctr++].makeMax2d(2));
-
-    std::array<Tensor<float>, 64> step3 = s.c2.forward(step2);  // 11x11
-    std::array<Tensor<float>, 64> step4;                   // 6x6
-
-    ctr=0;
-    for(auto& p : step4) {
-      p = makeFunction<ReluFunc>(step3[ctr++].makeMax2d(2));
-    }
-
-    std::array<Tensor<float>, 128> step5 = s.c3.forward(step4); // 4x4
-    std::array<Tensor<float>, 128> step6;                  // 2x2
-
-    ctr=0;
-    for(auto& p : step6) {
-      p = makeFunction<ReluFunc>(step5[ctr++].makeMax2d(2));
-    }
-    
-    Tensor<float> flat = makeFlatten(step6); // 2*2*128 * 1
-    auto output = s.fc1.forward(flat);
-    auto output2 = makeFunction<ReluFunc>(output);
-    auto output3 = makeFunction<ReluFunc>(s.fc2.forward(output2));
-    auto output4 = makeFunction<ReluFunc>(s.fc3.forward(output3));
-    rawscores = output4;
-    scores = makeLogSoftMax(output4);
-    loss = -(expected*scores).sum();
-  }
-};
-
 template<typename M>
-void testModel(M& m, const MNISTReader& mn, int batchno, std::mt19937& rangen)
+void testModel(SQLiteWriter& sqw, M& m, const MNISTReader& mn, unsigned int startID, int batchno, std::mt19937& rangen)
 {
-  static ofstream vcsv("validation4.csv");
-  static bool first=true;
-  if(first) {
-    vcsv<<"batchno,cputime,corperc,avgloss\n";
-    first=false;
-  }
-
   Batcher b(mn.num(), rangen);
   auto batch = b.getBatch(128);
   float totalLoss=0;
@@ -100,13 +31,13 @@ void testModel(M& m, const MNISTReader& mn, int batchno, std::mt19937& rangen)
     m.expected.zero();
     m.expected(0, label) = 1;
 
-    totalLoss += m.loss(0,0); // turns it into a float
+    totalLoss += m.modelloss(0,0); // turns it into a float
       
     int predicted = m.scores.maxValueIndexOfColumn(0);
 
     if(corrects + wrongs == 0) {
       printImgTensor(m.img);
-      cout<<"predicted: "<<(char)(predicted+'a')<<", actual: "<<(char)('a'+label)<<", loss: "<<m.loss<<"\n";
+      cout<<"predicted: "<<(char)(predicted+'a')<<", actual: "<<(char)('a'+label)<<", loss: "<<m.modelloss<<"\n";
     }
     
     if(predicted == label)
@@ -116,10 +47,16 @@ void testModel(M& m, const MNISTReader& mn, int batchno, std::mt19937& rangen)
   }
   double perc=100.0*corrects/(corrects+wrongs);
   cout<<"Validation batch average loss: "<<totalLoss/batch.size()<<", percentage correct: "<<perc<<", took "<<dt.lapUsec()/1000<<" ms for "<<batch.size()<<" images\n";
-  vcsv << batchno <<","<< clock()/CLOCKS_PER_SEC<<","<< perc << ", " << totalLoss/batch.size() << endl;
+  
+  sqw.addValue({
+      {"startID", startID},
+      {"batchno", batchno},
+      {"cputime", (double) clock()/CLOCKS_PER_SEC},
+      {"corperc", perc},
+      {"avgloss", totalLoss/batch.size()}}, "validation");
 }
 
-int main()
+int main(int argc, char **argv)
 {
   cout<<"Start!"<<endl;
   feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW );
@@ -132,21 +69,25 @@ int main()
   ConvoAlphabetModel m;
   ConvoAlphabetModel::State s;
   srandom(0);
-  s.randomize();
+
+  if(argc==2) {
+    cout<<"Loading model state from file '"<<argv[1]<<"'\n";
+    loadModelState(s, argv[1]);
+  }
+  else
+    s.randomize();
 
   //  std::random_device rd;
   //  std::mt19937 rangen(rd());
   std::mt19937 rangen(0);
 
   
-  //  cout<<s.fc1.d_weights<<endl;
   m.init(s);
 
   auto topo = m.loss.getTopo();
   cout<<"Topo.size(): "<<topo.size()<<endl;
 
-  ofstream tcsv("training4.csv");
-  tcsv<<"batchno,cputime,corperc,avgloss,batchsize,lr,momentum"<<endl;
+
 
   SQLiteWriter sqw("convo-vals.sqlite3");
   int64_t startID=time(0);
@@ -163,61 +104,33 @@ int main()
         break;
 
       if(!(tries % 32)) {
-        testModel(m, mntest, batchno, rangen);
+        testModel(sqw, m, mntest, startID, batchno, rangen);
         saveModelState(s, "tensor-convo.state");
-
-        int pos = 0;
-        auto emit = [&sqw, &startID, &pos, &batchno, &batch](const auto& t, string_view name) {
-          for(unsigned int r = 0 ; r < t.d_imp->d_val.rows(); ++r) {
-            for(unsigned int c = 0 ; c < t.d_imp->d_val.cols(); ++c) {
-              sqw.addValue({
-                  {"batchno", batchno},
-                  {"pos", pos},
-                  {"val", t.d_imp->d_val(r,c)},
-                  {"grad", t.d_imp->d_accumgrads(r,c)/batch.size()},
-                  {"name", (string)name + "(" + std::to_string(r)+"," + std::to_string(c)+")"},
-                  {"startID", startID}});
-              ++pos;
-            }
-          }
-        };
-        int fcount=0;
-        for(const auto& f: s.c1.d_filters)
-          emit(f, "c1["+std::to_string(fcount++)+"]");
-        fcount=0;
-        for(const auto& f: s.c2.d_filters)
-          emit(f, "c2["+std::to_string(fcount++)+"]");
-        fcount=0;
-        for(const auto& f: s.c3.d_filters)
-          emit(f, "c3["+std::to_string(fcount++)+"]");
-        
-        emit(s.fc1.d_weights, "fc1");
-        emit(s.fc2.d_weights, "fc2");
-        emit(s.fc3.d_weights, "fc3");
+      }
+      if(batchno < 32 || !(tries%32)) {
+        s.emit(sqw, startID, batchno, batch.size());
       }
       dt.start();
       
       batchno++;
 
-      float totalLoss = 0;
+      float totalLoss = 0, totalWeightsLoss=0;
       unsigned int corrects=0, wrongs=0;
       
       m.loss.zeroAccumGrads(topo);
-      
+
       for(const auto& idx : batch) {     
         mn.pushImage(idx, m.img);
         int label = mn.getLabel(idx) -1;
-        m.expected.zero();
-        m.expected(0, label) = 1;
+        m.expected.oneHotColumn(label);
         
-        totalLoss += m.loss(0,0); // turns it into a float
-        
+        totalLoss += m.modelloss(0,0); // turns it into a float
+        totalWeightsLoss += m.weightsloss(0,0);
         int predicted = m.scores.maxValueIndexOfColumn(0);
         
         if(corrects + wrongs == 0) {
-          cout<<"predicted: "<<(char)(predicted+'a')<<", actual: "<<(char)(label+'a')<<", loss: "<<m.loss<<"\n";
+          cout<<"predicted: "<<(char)(predicted+'a')<<", actual: "<<(char)(label+'a')<<", loss: "<<m.modelloss<<"\n";
           printImgTensor(m.img);
-          //        cout<<m.rawscores<<endl;
         }
         
         if(predicted == label)
@@ -231,11 +144,22 @@ int main()
         m.loss.zerograd(topo);
       }
       double perc = 100.0*corrects/(corrects+wrongs);
-      cout<<"Batch "<<batchno<<" average loss " << totalLoss/batch.size()<<", percent batch correct "<<perc<<"%, "<<0*dt.lapUsec()/1000<<"ms/batch"<<endl;
+      cout<<"Batch "<<batchno<<" average loss " << totalLoss/batch.size()<<", weightsloss " <<totalWeightsLoss/batch.size()<<", percent batch correct "<<perc<<"%, "<<0*dt.lapUsec()/1000<<"ms/batch"<<endl;
 
-      double lr=0.01 / batch.size();
-      s.learn(lr);
-      tcsv << batchno << "," << clock()/CLOCKS_PER_SEC<<","<< perc << ", " << totalLoss / batch.size() << ","<< batch.size() <<","<<lr*batch.size()<<","<<0<<endl; 
+      double lr=0.005 / batch.size();
+      double momentum = 0.9;
+      s.learn(lr, 0.9);
+
+      // tcsv<<"batchno,cputime,corperc,avgloss,batchsize,lr,momentum"<<endl;
+      sqw.addValue({
+          {"startID", startID},
+          {"batchno", batchno},
+          {"cputime", (double)clock()/CLOCKS_PER_SEC},
+          {"corperc", perc},
+          {"avgloss", totalLoss/batch.size()},
+          {"batchsize", (int)batch.size()},
+          {"lr", lr*batch.size()},
+          {"momentum", momentum}}, "training");
     }
   }
 }

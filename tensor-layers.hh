@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <fstream>
 #include <vector>
+#include "ext/sqlitewriter/sqlwriter.hh"
 
 template<typename T>
 struct TensorLayer
@@ -15,22 +16,56 @@ struct TensorLayer
   void save(std::ostream& out) const
   {
     for(const auto& p : d_params)
-      p->save(out);
+      p.ptr->save(out);
   }
   void load(std::istream& in) 
   {
     for(auto& p : d_params)
-      p->load(in);
+      p.ptr->load(in);
   }
-  void learn(float lr) 
+  void learn(float lr, float momentum) 
   {
     for(auto& p : d_params) {
-      auto grad1 = p->getAccumGrad();
+      auto grad1 = (momentum * p.ptr->getAccumGrad()).eval(); // THIS IS THE MOMENTUM
+      if(p.ptr->getPrevAccumGrad().rows())
+        grad1 += p.ptr->getPrevAccumGrad();
       grad1 *= lr;
-      *p -= grad1;
+      *p.ptr -= grad1;
     }
   }
-  std::vector<Tensor<T>*> d_params;
+  // emit all parameters to SQL
+  void emit(SQLiteWriter& sqw, unsigned int startID, unsigned int& pos, unsigned int batchno, unsigned int batchsize, std::string layername)
+  {
+    auto emit = [&sqw, &startID, &pos, &batchno, &batchsize](const auto& t, std::string_view name, std::string_view subname, unsigned int idx) {
+      for(unsigned int r = 0 ; r < t.d_imp->d_val.rows(); ++r) {
+        for(unsigned int c = 0 ; c < t.d_imp->d_val.cols(); ++c) {
+          sqw.addValue({
+              {"batchno", batchno},
+              {"pos", pos},
+              {"val", t.d_imp->d_val(r,c)},
+              {"grad", t.d_imp->d_accumgrads(r,c)/batchsize},
+              {"idx", idx},
+              {"row", r},
+              {"col", c},
+              {"name", (std::string)name},
+              {"subname", (std::string)subname},
+              {"startID", startID}});
+          ++pos;
+        }
+      }
+    };
+    // iterate over params
+    for(const auto& p : d_params)
+      emit(*p.ptr, layername, p.subname, p.idx);
+  }
+
+  struct Param
+  {
+    Tensor<T>* ptr;
+    std::string subname;
+    unsigned int idx=0;
+  };
+  std::vector<Param> d_params;
 };
 
 template<typename T, unsigned int IN, unsigned int OUT>
@@ -42,7 +77,7 @@ struct Linear : public TensorLayer<T>
   Linear()
   {
     randomize();
-    this->d_params = {&d_weights, &d_bias};
+    this->d_params = {{&d_weights, "weights"},  {&d_bias, "bias"}};
   }
   void randomize() override// "Xavier initialization"  http://proceedings.mlr.press/v9/glorot10a/glorot10a.pdf
   {
@@ -72,13 +107,17 @@ struct Conv2d : TensorLayer<T>
 
   Conv2d()
   {
+    unsigned int idx=0;
     for(auto& f : d_filters) {
       f = Tensor<T>(KERNEL, KERNEL);
-      this->d_params.push_back(&f);
+      this->d_params.push_back({&f, "filter", idx});
+      ++idx;
     }
+    idx=0;
     for(auto& b : d_bias) {
       b = Tensor<T>(1,1);
-      this->d_params.push_back(&b);
+      this->d_params.push_back({&b, "bias", idx});
+      ++idx;
     }
         
     randomize();
@@ -122,6 +161,15 @@ struct Conv2d : TensorLayer<T>
     }
     return ret;
   }
+
+  auto SquaredWeightsSum()
+  {
+    Tensor<T> ret(1,1);
+    ret(0,0)=0;
+    for(auto& f : d_filters) 
+      ret = ret + makeFunction<SquareFunc>(f).sum();
+    return ret;
+  }
 };
 
 template<typename T>
@@ -133,26 +181,35 @@ struct ModelState
   void randomize()
   {
     for(auto& m : d_members)
-      m->randomize();
+      m.first->randomize();
   }
-  void learn(float lr)
+  void learn(float lr, float momentum=0)
   {
     for(auto& m : d_members)
-      m->learn(lr);
+      m.first->learn(lr, momentum);
   }
 
   void save(std::ostream& out) const
   {
     for(const auto& m : d_members)
-      m->save(out);
+      m.first->save(out);
   }
   void load(std::istream& in)
   {
     for(auto& m : d_members)
-      m->load(in);
+      m.first->load(in);
   }
 
-  std::vector<TensorLayer<T>*> d_members;
+  std::vector<std::pair<TensorLayer<T>*, std::string>> d_members;
+
+  // ask all members of a model to emit themselves for logging
+  void emit(SQLiteWriter& sqw, unsigned int startID, unsigned int batchno, unsigned int batchsize)
+  {
+    unsigned int pos = 0;
+    for(const auto& m : d_members) {
+      m.first->emit(sqw, startID, pos, batchno, batchsize, m.second);
+    }
+  }
 };
 
 

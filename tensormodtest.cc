@@ -17,7 +17,7 @@ TEST_CASE("tensor model load save test") {
     Linear<float, 512, 64> d_fc1;  
     TestState()
     {
-      d_members = {&d_lc1, &d_fc1};
+      d_members = {{&d_lc1, "lc1"}, {&d_fc1, "fc1"}};
     }
   };
 
