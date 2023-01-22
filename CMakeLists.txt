@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.1)
-set(CMAKE_CXX_FLAGS "-Wall -Wextra -O3 -ggdb -march=native -msse2 -mavx -mavx2 -mfma  -fno-omit-frame-pointer -ffast-math -Iext/imgui -Iext/imgui/backends -Iext/implot-master -I/usr/include/eigen3 -I/usr/include/eigen3/unsupported/")
+set(CMAKE_CXX_FLAGS "-Wall -Wextra -O3 -ggdb -march=native -msse2 -mavx -mavx2 -mfma  -fno-omit-frame-pointer -ffast-math -Iext/imgui -Iext/imgui/backends -Iext/implot-master -I/usr/include/eigen3 -I/usr/include/eigen3/unsupported/ -Wno-missing-field-initializers")
 
 project(hello-dl VERSION 1.0
                   DESCRIPTION "Hello deep learning"
@@ -39,6 +39,10 @@ target_link_libraries(tensor-relu z  common Eigen3::Eigen )
 
 add_executable(tensor-convo tensor-convo.cc ext/sqlitewriter/sqlwriter.cc )
 target_link_libraries(tensor-convo z  common Eigen3::Eigen sqlite3) 
+
+add_executable(img-ocr img-ocr.cc )
+target_link_libraries(img-ocr z  common Eigen3::Eigen ) 
+
 
 
 add_executable(tensor-gru tensor-gru.cc )
