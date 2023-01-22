@@ -10,6 +10,7 @@ MiniSQLite::MiniSQLite(std::string_view fname)
     throw runtime_error("Unable to open "+(string)fname+" for sqlite");
   }
   exec("PRAGMA journal_mode='wal'");
+  sqlite3_busy_timeout(d_sqlite, 60000);
 }
 
 //! Get field names and types from a table
