@@ -4,6 +4,8 @@ already of course, but this one aims to really explain what is going on.
 Other documents start out from the (very impressive) PyTorch environment, or
 they attempt to math it up from first principles. 
 
+![](img/boxed.png)
+
 Trying to understand deep learning via PyTorch is like trying to learn
 aerodynamics from flying an Airbus A380. 
 
