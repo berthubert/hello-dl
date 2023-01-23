@@ -62,11 +62,14 @@ Despite doing some neural network experiments in the 1990s, I'm extremely new to
 <!-- GRU paper https://arxiv.org/pdf/1406.1078.pdf -->
 <!-- https://arxiv.org/pdf/2212.14034.pdf large language models on smaller systems -->
 <!-- https://github.com/coin-or/ADOL-C - automatic differentiation -->
+<!-- need to address "bagging" -->
+<!-- need to address "batch normalization" -->
+<!-- need to address "data augmentation" -->
 
 # Status
 So far this implements a small but pretty nice autograd system. In
-`first-convo.cc` you can find a ~1100 line total computer program that
-learns to recognize handwritten digits in 10 minutes (90% accuracy so far).
+`tensor-relu.cc` you can find a ~150 line total computer program that
+learns to recognize handwritten digits in a few seconds (90% accuracy so far).
 I'm aware it is probably overfitting the data right now.
 
 ```bash
@@ -76,10 +79,9 @@ cmake .
 make -j4
 wget http://www.itl.nist.gov/iaui/vip/cs_links/EMNIST/gzip.zip
 unzip gzip.zip
-./first-convo
+./tensor-relu
 ```
-This will require 10GB of RAM for now, which seems a bit too much. But the
-result is nice:
+The result is nice:
 
 ```
 Start!
@@ -146,4 +148,4 @@ Also really good:
 https://pytorch.org/tutorials/beginner/nn_tutorial.html
 
 # Internals
-Use `TrackedNumber` to build networks. You can also run them there if you want, but a faster way is to export them as 'Work' objects, which are a solid slab of contiguous memory.
+~~Use `TrackedNumber` to build networks. You can also run them there if you want, but a faster way is to export them as 'Work' objects, which are a solid slab of contiguous memory.~~
