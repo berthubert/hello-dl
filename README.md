@@ -48,6 +48,14 @@ The idea is that after you are done with the blog posts (yet to be written) and
 have worked with the tools that it should all make sense to you. And *then*
 you can get to work with professional tooling and get to work.
 
+Although this is an introduction using minimal dependencies and lines of
+code, we'll be covering advanced subjects like momentum, data augmentation,
+weight decay, batch normalization, dropout and GELU.
+
+And unlike most demos, this one includes crowd sourced validation data that
+helps show why many deep learning projects are great in theory but
+disappoint in practice.
+
 # Acknowledgments 
 Despite doing some neural network experiments in the 1990s, I'm extremely new to the modern stuff. The following projects/sites have been very useful in catching up:
 
@@ -66,7 +74,7 @@ Despite doing some neural network experiments in the 1990s, I'm extremely new to
 <!-- https://github.com/coin-or/ADOL-C - automatic differentiation -->
 <!-- need to address "bagging" -->
 <!-- need to address "batch normalization" -->
-<!-- need to address "data augmentation" -->
+<!-- need to address "data augmentation" -> https://www.tensorflow.org/api_docs/python/tf/keras/preprocessing/image/ImageDataGenerator -->
 
 # Status
 So far this implements a small but pretty nice autograd system. In
