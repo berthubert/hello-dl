@@ -1,6 +1,9 @@
 # hello-dl
+bert@hubertnet.nl - I post about this project on Mastodon as [@bert_hubert@fosstodon.org](https://fosstodon.org/@bert_hubert).
+
 A from scratch introduction to modern machine learning. Many tutorials exist
-already of course, but this one aims to really explain what is going on.
+already of course, but this one aims to really explain what is going on. Also, we'll develop the demo until it is actually useful on real life data.
+
 Other documents start out from the (very impressive) PyTorch environment, or
 they attempt to math it up from first principles. 
 
