@@ -698,7 +698,81 @@ TEST_CASE("gelu")
   x(0,0) = -1;
   gelu.backward(topo);
   CHECK(x.getGrad()(0,0) == doctest::Approx(-0.0833155));
+}
 
+TEST_CASE("dropout")
+{
+  Tensor x(4, 4);
+  x.iota(1);
+  auto dropped = x.makeDropout(0.8);
+  auto sum = dropped.sum();
+  float r = sum(0,0);
+
+  // the 5 comes from the scaling, 1/(1-0.8)
+  CHECK(r <= 5*(1+2+3+4+5+6+7+8+9+10+11+12+13+14+15+16));
+
+  
+  //  cout<<r<<endl;
+
+  //  cout<<"dropper:\n" << dropped.d_imp->d_rhs->d_val <<endl;
+  auto topo = sum.getTopo();
+
+  sum.backward(topo);
+  
+  //  cout << "x:\n"<<x <<endl;
+  //  cout<< "x.getGrad():\n"<<x.getGrad()<<endl;
+  //  cout << "dropped:\n"<<dropped << endl;
+
+  for(unsigned int r =0 ; r < x.getRows(); ++r) {
+    for(unsigned int c =0 ; c < x.getCols(); ++c) {
+      CHECK(x.getGrad()(r,c) == doctest::Approx((dropped(r,c)==0 ? 0.0 : 5.0)));
+      if(dropped(r,c) != 0.0) {
+        CHECK(dropped(r,c)==doctest::Approx(5.0*(1+c+4*r)));
+      }
+    }
+  }
+}
+
+TEST_CASE("tensor normalization")
+{
+  Tensor x(4,4);
+  x.iota(0); // 0..15
+
+  auto& val = x.d_imp->d_val;
+  float mean = val.mean();
+  cout<<"mean: " << mean << endl;
+  cout<<"std: "<< sqrt((val.array() - mean).unaryExpr([](float v) { return v*v; }).sum()/(val.cols()*val.rows())) << endl;
+  
+  CHECK(x(0,0) == 0); 
+  CHECK(x.sum()(0,0) == 120);
+  x.normalize(0.75); // 10 times less
+
+  cout<<"x.normalize(0.75):\n"<<x<<endl;
+  
+  CHECK(x(0,0) == 0);
+  CHECK(x(0,1) == doctest::Approx(0.1));
+  CHECK(x(0,2) == doctest::Approx(0.2));
+  CHECK(x(3,3) == doctest::Approx(1.5));
+
+  x.normalize(0.75, 0.4609772228646444); // should be a NOP
+  cout<<"x.normalize(0.75, 0.460977222):\n"<<x<<endl;
+  CHECK(x(0,0) == 0);
+  CHECK(x(0,1) == doctest::Approx(0.1));
+  CHECK(x(0,2) == doctest::Approx(0.2));
+  CHECK(x(3,3) == doctest::Approx(1.5));
+
+  x.normalize(0.75, 1.0);
+  mean = val.mean();
+  CHECK(mean == doctest::Approx(0.75));
+  float stddev =sqrt((val.array() - mean).unaryExpr([](float v) { return v*v; }).sum()/(val.cols()*val.rows()));
+  CHECK(stddev == doctest::Approx(1.0));
+  
+  
+  x.normalize(0.75, 0);
+  CHECK(x(0,0) == doctest::Approx(0.75));
+  CHECK(x(0,1) == doctest::Approx(0.75));
+  CHECK(x(0,2) == doctest::Approx(0.75));
+  CHECK(x(3,3) == doctest::Approx(0.75));
   
   
 }

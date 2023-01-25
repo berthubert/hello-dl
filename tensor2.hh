@@ -26,7 +26,8 @@ enum class TMode : uint8_t
   LogSoftMax=11,
   Neg=12,
   Convo=13,
-  Max2D=14
+  Max2D=14,
+  Dropout=15
 };
 
 struct ReluFunc
@@ -160,6 +161,22 @@ struct TensorImp
       d_lhs->assureValue();
       d_rhs->assureValue();
       d_val = d_lhs->d_val.cwiseProduct(d_rhs->d_val);
+    }
+    else if(d_mode == TMode::Dropout) {
+      // this does PyTorch-style scaling
+      d_lhs->assureValue();
+      
+      d_rhs->d_val = Eigen::MatrixX<float>(d_lhs->d_val.rows(), d_lhs->d_val.cols());
+      float rate = d_randomp.rate;
+      // rate = 0.9 means "drop most things"
+      d_rhs->d_val = d_rhs->d_val.unaryExpr(
+                                            [&rate](float) -> float
+                                            {
+                                              if(random() > rate * RAND_MAX) // "keep"
+                                                return 1.0/(1 - rate);
+                                              else return 0.0;
+                                            });
+      d_val = d_lhs->d_val.cwiseProduct(d_rhs->d_val);      
     }
     else if(d_mode == TMode::Slice) {
       d_lhs->assureValue();
@@ -309,6 +326,10 @@ struct TensorImp
       d_lhs->d_grads.array() += d_grads.array() * d_rhs->d_val.array();
       d_rhs->d_grads.array() += d_grads.array() * d_lhs->d_val.array();
     }
+    else if(d_mode == TMode::Dropout) {
+      // automatically gets the scaling right 
+      d_lhs->d_grads.array() += d_grads.array() * d_rhs->d_val.array();
+    }
     else if(d_mode == TMode::Slice) {
       d_lhs->d_grads.block(d_slicep.r, d_slicep.c, d_slicep.h, d_slicep.w) += d_grads;
     }
@@ -385,7 +406,9 @@ struct TensorImp
         }
       }
     }
-    else abort();
+    else {
+      abort();
+    }
   }
   
   mutable Eigen::MatrixX<T> d_val, d_grads, d_prevaccumgrads, d_accumgrads;
@@ -415,6 +438,10 @@ struct TensorImp
   {
     std::vector<std::shared_ptr<TensorImp<T>>> members;
   } d_flattenp;
+  struct RandomParams
+  {
+    float rate;
+  } d_randomp;
 
 };
 
@@ -610,6 +637,17 @@ struct Tensor
     return ret;
   }
 
+  Tensor<T> makeDropout(float rate)
+  {
+    Tensor<T> ret;
+    Tensor<T> rnd;
+    rnd.d_imp->d_mode = TMode::Parameter;
+    ret.d_imp = std::make_shared<TensorImp<T>>(d_imp, rnd.d_imp, TMode::Dropout);
+    ret.d_imp->d_randomp.rate = rate;
+    return ret;
+  }
+
+  
   unsigned int getRows() const
   {
     return d_imp->d_val.rows();
@@ -642,6 +680,19 @@ struct Tensor
     in.read((char*)d_imp->d_val.data(), sizeof(T)*d_imp->d_val.rows() * d_imp->d_val.cols());
   }
 
+  void normalize(T mean, T stddev = -1)
+  {
+    assert(d_imp->d_mode == TMode::Parameter);
+    auto& val = d_imp->d_val;
+    val.array() *= mean/val.mean();
+    if(stddev >= 0) {
+      T curstddev = sqrt((val.array() - mean).unaryExpr([](float v) { return v*v; }).sum()/(val.cols()*val.rows()));
+      T ratio = stddev/curstddev;
+      val = val.unaryExpr([&ratio, &mean](float v) {
+        return mean + (v-mean)*ratio;
+      });
+    }
+  }
   
   std::shared_ptr<TensorImp<T>> d_imp;
 };
