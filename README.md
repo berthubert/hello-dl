@@ -49,12 +49,24 @@ have worked with the tools that it should all make sense to you. And *then*
 you can get to work with professional tooling and get to work.
 
 Although this is an introduction using minimal dependencies and lines of
-code, we'll be covering advanced subjects like momentum, data augmentation,
-weight decay, batch normalization, dropout and GELU.
+code, we'll be covering modern subjects like momentum, data augmentation,
+[weight decay](https://vitalflux.com/weight-decay-in-machine-learning-concepts/), batch normalization, dropout, GELU, [weights and bias
+logging](https://wandb.ai/) & more.
 
 And unlike most demos, this one includes crowd sourced validation data that
-helps show why many deep learning projects are great in theory but
-disappoint in practice.
+helps show why many deep learning projects are great in theory [but
+disappoint in practice](https://www.technologyreview.com/2021/07/30/1030329/machine-learning-ai-failed-covid-hospital-diagnosis-pandemic/). 
+
+It appears machine learning projects tend to go through four phases:
+
+1. It works on the training data
+2. It also works on the validation data
+3. After a lot of disappointment, we get it to work on other people's real life data too
+4. Other people can get it to work on their own data as well
+
+Almost all demos declare victory after phase 2. This tutorial aims to achieve the final phase.
+
+Finally, we'll also spend time on how to detect that a neural network is not delivering a confident result.
 
 # Acknowledgments 
 Despite doing some neural network experiments in the 1990s, I'm extremely new to the modern stuff. The following projects/sites have been very useful in catching up:
