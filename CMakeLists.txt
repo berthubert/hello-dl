@@ -80,6 +80,9 @@ target_link_libraries(tensor-gru z  common Eigen3::Eigen )
 #add_executable(los los.cc )
 #target_link_libraries(los z  common)
 
+add_executable(mnistposter mnistposter.cc )
+target_link_libraries(mnistposter z  common)
+
 add_executable(los2 los2.cc )
 target_link_libraries(los2 z  common)
 
