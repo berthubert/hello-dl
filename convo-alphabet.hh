@@ -26,7 +26,7 @@ struct ConvoAlphabetModel {
     }
   };
   
-  void init(State& s)
+  void init(State& s, bool production=false)
   {
     img.zero();
     img.d_imp->d_nograd=true;
@@ -57,7 +57,8 @@ struct ConvoAlphabetModel {
     
     Tensor<float> flat = makeFlatten(step6); // 2*2*128 * 1
     auto output = s.fc1.forward(flat);
-    auto output2 = makeFunction<ActFunc>(output);
+    auto output1 = production ? output : output.makeDropout(0.5); 
+    auto output2 = makeFunction<ActFunc>(output1);
     auto output3 = makeFunction<ActFunc>(s.fc2.forward(output2));
     auto output4 = makeFunction<ActFunc>(s.fc3.forward(output3));
     scores = makeLogSoftMax(output4);
