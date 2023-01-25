@@ -12,22 +12,8 @@
 
 enum class TMode : uint8_t
 {
-  Unassigned = 0,
-  Parameter=1,
-  Addition=2,
-  Mult=3,
-  Div=4,
-  Func=5,
-  Max=6,
-  Sum=7,
-  Slice=8,
-  Flatten = 9,
-  DotProd= 10,
-  LogSoftMax=11,
-  Neg=12,
-  Convo=13,
-  Max2D=14,
-  Dropout=15
+  Unassigned = 0,  Parameter=1,  Addition=2,  Mult=3,  Div=4,  Func=5,  Max=6,  Sum=7,  Slice=8,  Flatten = 9,  DotProd= 10,
+  LogSoftMax=11,  Neg=12,  Convo=13,  Max2D=14,  Dropout=15
 };
 
 struct ReluFunc
@@ -42,15 +28,13 @@ struct ReluFunc
   }
 };
 
-// this is the 'slow' version
-// https://alaaalatif.github.io/2019-04-11-gelu/ has some partially confusing words
+// this is the 'slow' version,  https://alaaalatif.github.io/2019-04-11-gelu/ has some partially confusing words
 struct GeluFunc
 {
   static constexpr float invsqrt2 = .70710678118654752440; // 1/sqrt(2)
   static float func(float f)
   {
     return 0.5*f*(1+erff(f*invsqrt2));  
-    
   }
   static float deriv(float f)
   {
@@ -122,7 +106,6 @@ struct TensorImp
   }
   
   // we can have an embedded value, or one we have to calculate
-
   void assureValue() const
   {
     if(d_haveval || d_mode == TMode::Parameter)
@@ -153,8 +136,7 @@ struct TensorImp
       d_rhs->assureValue();
       // so matrix division is "not really a thing"
       // we do support the special case where the RHS is a single number
-      if(d_rhs->d_val.cols() != 1 || d_rhs->d_val.rows()!= 1)
-        abort();
+      assert(d_rhs->d_val.cols() == 1 && d_rhs->d_val.rows()== 1);
       d_val = d_lhs->d_val.array() / d_rhs->d_val(0,0);
     }
     else if(d_mode == TMode::DotProd) {
@@ -162,8 +144,7 @@ struct TensorImp
       d_rhs->assureValue();
       d_val = d_lhs->d_val.cwiseProduct(d_rhs->d_val);
     }
-    else if(d_mode == TMode::Dropout) {
-      // this does PyTorch-style scaling
+    else if(d_mode == TMode::Dropout) {       // this does PyTorch-style scaling
       d_lhs->assureValue();
       
       d_rhs->d_val = Eigen::MatrixX<float>(d_lhs->d_val.rows(), d_lhs->d_val.cols());
@@ -224,8 +205,6 @@ struct TensorImp
                                 (d_lhs->d_val.cols()+d_max2dp.kernel-1)/d_max2dp.kernel);
       for(int r = 0 ; r < d_lhs->d_val.rows(); r += d_max2dp.kernel)
         for(int c = 0 ; c < d_lhs->d_val.cols(); c += d_max2dp.kernel) {
-          //          //          std::cout<<r<<","<<c<<","<<d_max2dp.kernel<<"\n";
-          //          std::cout<<"Part\n"<<d_lhs->d_val.block(r, c, d_max2dp.kernel, d_max2dp.kernel)<<"\n";
           // padding
           int effheight = std::min(r+ d_max2dp.kernel, (int)d_lhs->d_val.rows()) - r;
           int effwidth = std::min(c+ d_max2dp.kernel, (int)d_lhs->d_val.cols()) - c;
@@ -244,7 +223,6 @@ struct TensorImp
     d_haveval = true;
   }
   
-  // these operate on 
   T& operator()(int row, int col)
   {
     assureValue();
@@ -257,7 +235,7 @@ struct TensorImp
     return d_val(row, col);
   }
 
-  // this function is key to the magic
+  // this function is absolutely key to the magic
   void build_topo(std::unordered_set<TensorImp<T>*>& visited, std::vector<TensorImp<T>*>& topo)
   {
     if(visited.count(this))
@@ -272,8 +250,8 @@ struct TensorImp
     }
     if(d_mode == TMode::Flatten)
       for(auto& m : d_flattenp.members)
-        m->build_topo(visited, topo);
-    // XXX also need to do bias of convo
+        m->build_topo(visited, topo);     // XXX also need to do bias of convo
+
     topo.push_back(this);
   }
 
@@ -283,12 +261,6 @@ struct TensorImp
       return;
     }
     else if(d_mode == TMode::Flatten) {
-      /*
-      using namespace std;
-      cout<<"flatten grad:\n";
-      cout << "d_lhs->d_grads array\n"<< d_lhs->d_grads.array() << endl;
-      cout << "d_grads array\n"<< d_grads.array() << endl;
-      */
       int gradpos=0;
       for(auto& m : d_flattenp.members)
         for(int r=0; r < m->d_grads.reshaped().rows(); ++r)
@@ -302,19 +274,8 @@ struct TensorImp
       d_lhs->d_grads -= d_grads;
     }
     else if(d_mode == TMode::Mult) {
-      /*
-      using namespace std;
-      cout<<"d_val: \n"<<d_val <<endl;
-      cout<<"d_grads: \n"<<d_grads<<endl;
-      cout<<"rhs->d_val: \n"<<d_rhs->d_val << endl;
-      cout<<"attempt lhs: \n"<<(d_grads * d_rhs->d_val.transpose())<<endl;
-      */
+      // noalias might offer a bit of a speedup
       d_lhs->d_grads.noalias() += (d_grads * d_rhs->d_val.transpose());
-      /*
-      cout<<"d_grads: \n"<<d_grads<<endl;
-      cout<<"lhs->d_val: \n"<<d_lhs->d_val << endl;      
-      cout<<"attempt rhs: \n"<<(d_lhs->d_val.transpose() * d_grads) << endl;
-      */
       d_rhs->d_grads.noalias() += (d_lhs->d_val.transpose() * d_grads);
     }
     else if(d_mode == TMode::Div) { // so matrix division is "not really a thing"
@@ -345,22 +306,9 @@ struct TensorImp
       // https://math.stackexchange.com/questions/2013050/log-of-softmax-function-derivative
     }
     else if(d_mode == TMode::Func) {
-      using namespace std;
-      /*
-      cout<<"\nFUNC\n";
-      cout<<"d_lhs->d_grads: "<<d_lhs->d_grads<<endl;
-      cout<<"d_grads: "<<d_grads<<endl;
-
-      cout<<"tmp:\n"<<d_lhs->d_val.unaryExpr(d_deriv)<<"\n";
-      */
       d_lhs->d_grads.array() += d_grads.array()*d_lhs->d_val.unaryExpr(d_deriv).array();
-        //        d_lhs->d_grads.array() + d_grads(0,0);
-      /*
-      cout<<"d_lhs->d_grads after: "<<d_lhs->d_grads<<endl;
-      cout<<"\n";
-      */
     }
-    else if(d_mode == TMode::Convo) {
+    else if(d_mode == TMode::Convo) { // this is where we spend _all_ our time
       // weights in d_rhs
       // need to convey grads to input (d_lhs), weights (r_hs) and bias
       // if kernel is same size, convolution delivers a single number in d_val
@@ -373,7 +321,6 @@ struct TensorImp
       // if the kernel is smaller, it needs to walk over the input and add up
       // itself to the grads there, and conversely, add up the grads from there to itself (??)
 
-
       // the output (d_val) has shape 1 + d_lhs (input)  - d_rhs (filters)
 
       //      std::cout<<"Called for "<<d_val.rows()<<" rows and " << d_val.cols()<<" cols, grads sum "<<d_grads.sum()<<"\n";
@@ -384,8 +331,8 @@ struct TensorImp
           d_lhs->d_grads.block(r,c,d_convop.kernel, d_convop.kernel)  += d_rhs->d_val * d_grads(r,c);
 
       // now add grads to the filter - note that this convolves over blocks
-      // XXX we ignore our own grads
-      // the size of the output!
+
+      // this is the size of the output:
       for(int r = 0 ; r < d_rhs->d_val.rows(); ++r)
         for(int c = 0 ; c < d_rhs->d_val.cols(); ++c)
           d_rhs->d_grads(r,c) += (d_lhs->d_val.block(r, c, d_val.rows(), d_val.cols())*d_grads).sum();
@@ -442,9 +389,7 @@ struct TensorImp
   {
     float rate;
   } d_randomp;
-
 };
-
 
 template<typename T=float>
 struct Tensor
@@ -481,7 +426,6 @@ struct Tensor
     topo.shrink_to_fit();
     return topo;
   }
-
   
   void backward(std::vector<TensorImp<T>*> topo=0)
   {
@@ -501,11 +445,11 @@ struct Tensor
       if((*iter)->d_mode != TMode::Parameter)
         (*iter)->d_haveval = false;
 
-      // aren't these in topo?
+      // aren't these in topo? 
       if((*iter)->d_mode == TMode::Convo) {// UGLY
         (*iter)->d_convop.bias->d_grads(0,0)=0;
       }
-
+      // same?
       if((*iter)->d_mode == TMode::Flatten) {// UGLY
         for(auto& m : (*iter)->d_flattenp.members) {
           m->d_grads.setConstant(0);
@@ -528,7 +472,6 @@ struct Tensor
       (*iter)->d_accumgrads += (*iter)->d_grads;
     }
   }
-
   
   Eigen::MatrixX<T> getGrad()
   {
@@ -540,31 +483,27 @@ struct Tensor
     return d_imp->d_prevaccumgrads;
   }
 
-  
   Eigen::MatrixX<T> getAccumGrad()
   {
     return d_imp->d_accumgrads;
   }
-
   
   void randomize(float fact)
   {
     d_imp->d_mode = TMode::Parameter;
-    d_imp->d_val = Eigen::MatrixX<T>::Random(d_imp->d_val.rows(), d_imp->d_val.cols()); // XXX probably not right
+    d_imp->d_val = Eigen::MatrixX<T>::Random(d_imp->d_val.rows(), d_imp->d_val.cols()); // uniform -1..1
     d_imp->d_val.array() *= fact;
   }
 
   void zero()
   {
-    d_imp->d_mode = TMode::Parameter;
-    d_imp->d_val = Eigen::MatrixX<T>::Zero(d_imp->d_val.rows(), d_imp->d_val.cols()); 
+    constant(0);
   }
   void oneHotColumn(int c)
   {
     zero();
     d_imp->d_val(0,c) = 1;
   }
-
   void constant(float f)
   {
     d_imp->d_mode = TMode::Parameter;
@@ -588,7 +527,6 @@ struct Tensor
       d_imp->d_val(r,r)= f;
     }
   }
-
   
   auto& operator-=(const Eigen::MatrixX<T>& rhs)
   {
@@ -597,8 +535,9 @@ struct Tensor
   }
 
   unsigned int maxValueIndexOfColumn(int c)
-  {
-    Eigen::Index maxRow, maxCol;
+  { 
+    assert(c==0 && d_imp->d_val.cols() == 1); // we only support one column right now!
+    Eigen::Index maxRow, maxCol; 
     d_imp->d_val.maxCoeff(&maxRow, &maxCol);
     return maxRow;
   }
@@ -610,6 +549,7 @@ struct Tensor
     return ret;
   }
 
+  // we're not using this
   Tensor<T> makeSlice(int r, int c, int h, int w=-1)
   {
     if(w <= 0)
@@ -646,7 +586,6 @@ struct Tensor
     ret.d_imp->d_randomp.rate = rate;
     return ret;
   }
-
   
   unsigned int getRows() const
   {
@@ -714,7 +653,6 @@ Tensor<T> operator-(const Tensor<T>& lhs, const Tensor<T>& rhs)
   return lhs + neg;
 }
 
-
 template<typename T>
 inline Tensor<T> operator-(const Tensor<T>& lhs) 
 {
@@ -722,7 +660,6 @@ inline Tensor<T> operator-(const Tensor<T>& lhs)
   neg.d_imp = std::make_shared<TensorImp<T>>(lhs.d_imp, std::shared_ptr<TensorImp<T>>(), TMode::Neg);
   return neg;
 }
-
 
 template<typename T>
 inline Tensor<T> operator*(const Tensor<T>& lhs, const Tensor<T>& rhs)
@@ -741,7 +678,6 @@ inline Tensor<T> operator/(const Tensor<T>& lhs, const Tensor<T>& rhs)
   return ret;
 }
 
-
 template<typename F, typename T>
 inline Tensor<T> makeFunction(const Tensor<T>& lhs)
 {
@@ -751,6 +687,7 @@ inline Tensor<T> makeFunction(const Tensor<T>& lhs)
   ret.d_imp->d_deriv = &F::deriv;
   return ret;
 }
+
 template<typename T>
 inline Tensor<T> makeLogSoftMax(const Tensor<T>& lhs)
 {
@@ -778,7 +715,6 @@ Tensor<T> makeFlatten(const std::initializer_list<Tensor<T>>& members)
     ret.d_imp->d_flattenp.members.push_back(m.d_imp);
   return ret;
 }
-
 
 template<typename T>
 std::ostream& operator<<(std::ostream& os, const Tensor<T>& ns)
