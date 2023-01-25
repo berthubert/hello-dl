@@ -13,9 +13,12 @@
 
 using namespace std;
 
-template<typename M>
-void testModel(SQLiteWriter& sqw, M& m, const MNISTReader& mn, unsigned int startID, int batchno, std::mt19937& rangen)
+template<typename M, typename S>
+void testModel(SQLiteWriter& sqw, S& s, const MNISTReader& mn, unsigned int startID, int batchno, std::mt19937& rangen)
 {
+  M m;
+  m.init(s, true); // production
+  
   Batcher b(mn.num(), rangen);
   auto batch = b.getBatch(128);
   float totalLoss=0;
@@ -80,14 +83,11 @@ int main(int argc, char **argv)
   //  std::random_device rd;
   //  std::mt19937 rangen(rd());
   std::mt19937 rangen(0);
-
   
   m.init(s);
 
   auto topo = m.loss.getTopo();
   cout<<"Topo.size(): "<<topo.size()<<endl;
-
-
 
   SQLiteWriter sqw("convo-vals.sqlite3");
   int64_t startID=time(0);
@@ -104,7 +104,7 @@ int main(int argc, char **argv)
         break;
 
       if(!(tries % 32)) {
-        testModel(sqw, m, mntest, startID, batchno, rangen);
+        testModel<ConvoAlphabetModel>(sqw, s, mntest, startID, batchno, rangen);
         saveModelState(s, "tensor-convo.state");
       }
       if(batchno < 32 || !(tries%32)) {
@@ -144,7 +144,7 @@ int main(int argc, char **argv)
         m.loss.zerograd(topo);
       }
       double perc = 100.0*corrects/(corrects+wrongs);
-      cout<<"Batch "<<batchno<<" average loss " << totalLoss/batch.size()<<", weightsloss " <<totalWeightsLoss/batch.size()<<", percent batch correct "<<perc<<"%, "<<0*dt.lapUsec()/1000<<"ms/batch"<<endl;
+      cout<<"Batch "<<batchno<<" average loss " << totalLoss/batch.size()<<", weightsloss " <<totalWeightsLoss/batch.size()<<", percent batch correct "<<perc<<"%, "<<dt.lapUsec()/1000<<"ms/batch"<<endl;
 
       double lr=0.005 / batch.size();
       double momentum = 0.9;
