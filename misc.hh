@@ -90,27 +90,6 @@ private:
 
 };
 
-template<typename T>
-void printImg(const T& img)
-{
-  for(unsigned int y=0; y < img.getRows(); ++y) {
-    for(unsigned int x=0; x < img.getCols(); ++x) {
-      float val = img(y,x).getVal();
-      if(val > 0.5)
-        std::cout<<'X';
-      else if(val > 0.25)
-        std::cout<<'*';
-      else if(val > 0.125)
-        std::cout<<'.';
-      else
-        std::cout<<' ';
-    }
-    std::cout<<'\n';
-  }
-  std::cout<<"\n";
-}
-
-
 
 struct DTime
 {
