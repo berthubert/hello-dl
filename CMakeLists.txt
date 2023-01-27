@@ -40,8 +40,11 @@ target_link_libraries(tensor-relu z  common Eigen3::Eigen )
 add_executable(tensor-convo tensor-convo.cc ext/sqlitewriter/sqlwriter.cc )
 target_link_libraries(tensor-convo z  common Eigen3::Eigen sqlite3) 
 
-add_executable(img-ocr img-ocr.cc )
+add_executable(img-ocr img-ocr.cc vizi.cc )
 target_link_libraries(img-ocr z  common Eigen3::Eigen ) 
+
+add_executable(threeorseven threeorseven.cc vizi.cc ext/sqlitewriter/sqlwriter.cc)
+target_link_libraries(threeorseven z  common Eigen3::Eigen sqlite3 ) 
 
 
 
