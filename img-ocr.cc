@@ -1,11 +1,7 @@
-#define STB_IMAGE_IMPLEMENTATION
 #include "ext/stb/stb_image.h"
-#define STB_IMAGE_RESIZE_IMPLEMENTATION
 #include "ext/stb/stb_image_resize.h"
-#define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "ext/stb/stb_image_write.h"
-#define STB_TRUETYPE_IMPLEMENTATION  // force following include to generate implementation
-#include "ext/stb/stb_truetype.h"
+
 
 #include <array>
 #include <vector>
@@ -13,36 +9,17 @@
 #include <iostream>
 #include "tensor-layers.hh"
 #include "convo-alphabet.hh"
+#include "vizi.hh"
 
 using namespace std;
 
-struct FontWriter
-{
-  FontWriter()
-  {
-    FILE* fp = fopen("/usr/share/fonts/truetype/msttcorefonts/Times_New_Roman_Bold.ttf", "rb");
-    fread(d_ttf_buffer, 1, 1<<18, fp);
-    fclose(fp);
-    stbtt_InitFont(&d_font, d_ttf_buffer, stbtt_GetFontOffsetForIndex(d_ttf_buffer,0));
-  }
-
-  void writeChar(char ch, int s, int c, int r, std::function<void(int, int, int, int, int)> f)
-  {
-    int w,h,i,j;
-    unsigned char *bitmap = stbtt_GetCodepointBitmap(&d_font, 0,stbtt_ScaleForPixelHeight(&d_font, s), ch, &w, &h, 0,0);
-    c -= w/2; // center
-    for (j=0; j < h; ++j) {
-      for (i=0; i < w; ++i) {
-        f(c + i, r + j, 255-bitmap[j*w+i], 255-bitmap[j*w+i], 255-bitmap[j*w+i]);
-      }
-    }
-  }
-  stbtt_fontinfo d_font;
-  unsigned char d_ttf_buffer[1<<18];
-};
 
 int main(int argc, char** argv)
 {
+  if(argc < 2) {
+    cout<<"Syntax: img-ocr imagename modelname"<<endl;
+    return EXIT_FAILURE;
+  }
   int cols, rows, n;
   unsigned const char *data = stbi_load(argv[1], &cols, &rows, &n, 3);
   if(!data) {
