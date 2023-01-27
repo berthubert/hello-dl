@@ -773,6 +773,21 @@ TEST_CASE("tensor normalization")
   CHECK(x(0,1) == doctest::Approx(0.75));
   CHECK(x(0,2) == doctest::Approx(0.75));
   CHECK(x(3,3) == doctest::Approx(0.75));
-  
-  
+}
+
+TEST_CASE("scalar tensor")
+{
+  Tensor x(3.0f);
+  Tensor y(6.0f);
+  auto res = y/x;
+  CHECK(res(0,0) == 2.0);
+
+  Tensor a(2,5);
+  a.iota(1);
+  CHECK(a.sum()(0,0) == 55);
+
+  Tensor<float> b(2.0);
+  a = a / b;
+
+  CHECK(a.sum()(0,0) == doctest::Approx(55/2.0));
 }
