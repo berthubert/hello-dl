@@ -46,7 +46,8 @@ target_link_libraries(img-ocr z  common Eigen3::Eigen )
 add_executable(threeorseven threeorseven.cc vizi.cc ext/sqlitewriter/sqlwriter.cc)
 target_link_libraries(threeorseven z  common Eigen3::Eigen sqlite3 ) 
 
-
+add_executable(37learn 37learn.cc vizi.cc ext/sqlitewriter/sqlwriter.cc)
+target_link_libraries(37learn z  common Eigen3::Eigen sqlite3 ) 
 
 add_executable(tensor-gru tensor-gru.cc )
 target_link_libraries(tensor-gru z  common Eigen3::Eigen )
