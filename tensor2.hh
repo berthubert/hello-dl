@@ -89,7 +89,8 @@ struct TensorImp
   typedef TensorImp<T> us_t;
   TensorImp() : d_mode(TMode::Unassigned)
   {}
-  
+
+  //! Create a new parameter (value) tensor. Inits everything to zero.
   TensorImp(unsigned int rows, unsigned int cols) :  d_mode(TMode::Parameter)
   {
     d_val = Eigen::MatrixX<T>(rows, cols);
@@ -401,6 +402,12 @@ struct Tensor
   Tensor(unsigned int rows, unsigned int cols) : d_imp(std::make_shared<TensorImp<T>>(rows, cols))
   {}
 
+  // to make life somewhat easier
+  explicit Tensor(const T& val) : d_imp(std::make_shared<TensorImp<T>>(1, 1))
+  {
+    (*d_imp)(0,0) = val;
+  }
+  
   T& operator()(int x, int y)
   {
     return (*d_imp)(x, y);
@@ -411,6 +418,12 @@ struct Tensor
     return (*d_imp)(x, y);
   }
 
+  Eigen::MatrixX<T>& raw()
+  {
+    assert(d_imp->d_mode == TMode::Parameter);
+    return d_imp->d_val;
+  }
+  
   Tensor<T> sum()
   {
     Tensor<T> ret;
