@@ -10,35 +10,35 @@ int main()
 {
   MNISTReader mn("gzip/emnist-digits-train-images-idx3-ubyte.gz", "gzip/emnist-digits-train-labels-idx1-ubyte.gz");
   MNISTReader mntest("gzip/emnist-digits-test-images-idx3-ubyte.gz", "gzip/emnist-digits-test-labels-idx1-ubyte.gz");
-  Tensor threes(28, 28), sevens(28, 28);
-  threes.zero();
-  sevens.zero();
-  cout<<"Have "<<mn.num()<<" training images and " << mntest.num()<< " validation" <<endl;
 
-  unsigned int threecount = 0, sevencount=0;
+  cout << "Have "<<mn.num() << " training images and " << mntest.num() << " validation images." <<endl;
+
+  Tensor threes(28, 28), sevens(28, 28);
+  
+  float threecount = 0, sevencount=0;
   for(unsigned int n = 0 ; n < mn.num(); ++n) {
     int label = mn.getLabel(n);
     if(label != 3 && label != 7)
       continue;
+    
     Tensor img(28,28);
     mn.pushImage(n, img);
 
     if(label == 3) {
       threecount++;
-      threes.d_imp->d_val += img.d_imp->d_val;
-
+      threes.raw() += img.raw();
     }
     else {
       sevencount++;
-      sevens.d_imp->d_val += img.d_imp->d_val;
+      sevens.raw() += img.raw();
     }
   }
   saveTensor(threes, "threes.png", 252, true);
   saveTensor(sevens, "sevens.png", 252, true);
 
-  Tensor totcount(1,1);
-  totcount(0,0) = (threecount + sevencount);
+  Tensor totcount(threecount + sevencount);
   auto delta = (sevens - threes) / totcount;
+
   saveTensor(delta, "diff.png", 252);
 
   float threesmean = 0, sevensmean = 0;
@@ -53,22 +53,21 @@ int main()
     Tensor img(28,28);
     mn.pushImage(n, img);
 
-    float res = (img.dot(delta).sum()(0,0));
+    float res = (img.dot(delta).sum()(0,0)); // the calculation
 
     sqw.addValue({{"label", label}, {"res", res}});
-    if(label == 3) {
+    if(label == 3) 
       threesmean += res;
-    }
-    else {
+    else 
       sevensmean += res;
-    }
   }
 
   cout<<"Three average result: "<<threesmean/threecount<<", seven average result: "<<sevensmean/sevencount<<endl;
   float middle = (sevensmean/sevencount + threesmean/threecount) / 2;
-  //  middle = -4.13;
   //  middle = 0;
   cout<<"Middle: "<< middle <<endl;
+
+  float bias = -middle;
   
   unsigned int corrects=0, wrongs=0;
   int haveseven=0, havethree=0;
@@ -79,7 +78,8 @@ int main()
     Tensor img(28,28);
     mntest.pushImage(n, img);
 
-    int predict = (img.dot(delta).sum()(0,0)) > middle ? 7 : 3;
+    float score = (img.dot(delta).sum()(0,0)) + bias; // the calculation
+    int predict = score > 0 ? 7 : 3;                  // the verdict
     
     if(predict == label) {
       if(haveseven < 5 && label==7) {
@@ -102,6 +102,5 @@ int main()
       wrongs++;
     }
   }
-  cout<< 100.0*corrects/(corrects+wrongs)<<"% correct"<<endl;
-  
+  cout << 100.0*corrects/(corrects+wrongs) << "% correct" << endl;
 }
