@@ -6,6 +6,7 @@
 #include "tensor2.hh"
 #include "mnistreader.hh"
 #include "misc.hh"
+#include "vizi.hh"
 #include <fenv.h>
 #include "tensor-layers.hh"
 #include "convo-alphabet.hh"
@@ -30,6 +31,9 @@ void testModel(SQLiteWriter& sqw, S& s, const MNISTReader& mn, unsigned int star
   for(const auto& idx : batch) {
     m.loss.zerograd(topo);
     mn.pushImage(idx, m.img);
+    // normalize
+    m.img.normalize(0.172575, 0.25);
+    
     int label = mn.getLabel(idx) - 1;
     m.expected.zero();
     m.expected(0, label) = 1;
@@ -121,6 +125,9 @@ int main(int argc, char **argv)
 
       for(const auto& idx : batch) {     
         mn.pushImage(idx, m.img);
+        // normalize
+        m.img.normalize(0.172575, 0.25);
+        
         int label = mn.getLabel(idx) -1;
         m.expected.oneHotColumn(label);
         
@@ -146,9 +153,9 @@ int main(int argc, char **argv)
       double perc = 100.0*corrects/(corrects+wrongs);
       cout<<"Batch "<<batchno<<" average loss " << totalLoss/batch.size()<<", weightsloss " <<totalWeightsLoss/batch.size()<<", percent batch correct "<<perc<<"%, "<<dt.lapUsec()/1000<<"ms/batch"<<endl;
 
-      double lr=0.005 / batch.size();
+      double lr=0.002 / batch.size(); // 0.010 works well at the beginning
       double momentum = 0.9;
-      s.learn(lr, 0.9);
+      s.learn(lr, momentum);
 
       // tcsv<<"batchno,cputime,corperc,avgloss,batchsize,lr,momentum"<<endl;
       sqw.addValue({
