@@ -3,11 +3,11 @@
 #include <assert.h>
 #include <cstddef>
 #include <cstdint>
+#include <fstream>
 #include <memory>
 #include <iostream>
 #include <unordered_set>
 #include <Eigen/Dense>
-#include <Eigen/CXX11/Tensor>
 // goal, a tensor that does its own gradients
 
 enum class TMode : uint8_t
@@ -238,7 +238,7 @@ struct TensorImp
 
   // this function is absolutely key to the magic
   void build_topo(std::unordered_set<TensorImp<T>*>& visited, std::vector<TensorImp<T>*>& topo)
-  {
+  { // https://en.wikipedia.org/wiki/Topological_sorting
     if(visited.count(this))
       return;
     visited.insert(this);
@@ -439,8 +439,14 @@ struct Tensor
     topo.shrink_to_fit();
     return topo;
   }
+
+  void backward() // SLLOOOOW
+  {
+    auto topo = getTopo();
+    backward(topo);
+  }
   
-  void backward(std::vector<TensorImp<T>*> topo=0)
+  void backward(std::vector<TensorImp<T>*> topo)
   {
     d_imp->assureValue();
     d_imp->d_grads = d_imp->d_val; // dimensions
@@ -562,7 +568,6 @@ struct Tensor
     return ret;
   }
 
-  // we're not using this
   Tensor<T> makeSlice(int r, int c, int h, int w=-1)
   {
     if(w <= 0)
