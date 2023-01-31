@@ -100,7 +100,16 @@ Pretty rough, but showing signs of doing something real.
 
 The code implements two small but pretty nice autograd systems, one simple and slow, the other slightly more complicated but fast. In `tensor-relu.cc` you can find a ~150 line total computer program that
 learns to recognize handwritten digits in a few seconds (90% accuracy so far).
-I'm aware it is probably overfitting the data:
+
+We do have a few dependencies:
+
+```bash
+sudo apt install cmake libeigen3-dev libsqlite3-dev
+```
+This works for Debian derived systems, but cmake, Eigen and SQLite are
+universally available.
+
+Here is how to install and run the first sample: 
 
 ```bash
 git clone https://github.com/berthubert/hello-dl.git
