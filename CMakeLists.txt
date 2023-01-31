@@ -22,8 +22,6 @@ find_package(Threads REQUIRED)
 #  z
 #)
 
-
-
 add_library(common OBJECT mnistreader.cc textsupport.cc )
 #add_library(gui OBJECT ui.cc ext/imgui/imgui.cpp  ext/imgui/imgui_demo.cpp  ext/imgui/imgui_draw.cpp  ext/imgui/imgui_tables.cpp  ext/imgui/imgui_widgets.cpp ext/imgui/backends/imgui_impl_glfw.cpp ext/imgui/backends/imgui_impl_opengl3.cpp ext/implot-master/implot.cpp ext/implot-master/implot_items.cpp ext/implot-master/implot_demo.cpp)
 
@@ -34,8 +32,8 @@ add_library(common OBJECT mnistreader.cc textsupport.cc )
 #add_executable(first-relu first-relu.cc )
 #target_link_libraries(first-relu z  common)
 
-add_executable(tensor-relu tensor-relu.cc )
-target_link_libraries(tensor-relu z  common Eigen3::Eigen )
+add_executable(tensor-relu tensor-relu.cc ext/sqlitewriter/sqlwriter.cc)
+target_link_libraries(tensor-relu z  common Eigen3::Eigen sqlite3)
 
 add_executable(tensor-convo tensor-convo.cc ext/sqlitewriter/sqlwriter.cc )
 target_link_libraries(tensor-convo z  common Eigen3::Eigen sqlite3) 
@@ -48,6 +46,13 @@ target_link_libraries(threeorseven z  common Eigen3::Eigen sqlite3 )
 
 add_executable(37learn 37learn.cc vizi.cc ext/sqlitewriter/sqlwriter.cc)
 target_link_libraries(37learn z  common Eigen3::Eigen sqlite3 ) 
+
+add_executable(basic-autograd basic-autograd.cc)
+target_link_libraries(basic-autograd z  common Eigen3::Eigen  ) 
+
+add_executable(imagine imagine.cc vizi.cc)
+target_link_libraries(imagine z  common Eigen3::Eigen  ) 
+
 
 add_executable(tensor-gru tensor-gru.cc )
 target_link_libraries(tensor-gru z  common Eigen3::Eigen )
@@ -87,11 +92,11 @@ target_link_libraries(tensor-gru z  common Eigen3::Eigen )
 add_executable(mnistposter mnistposter.cc )
 target_link_libraries(mnistposter z  common)
 
-add_executable(los2 los2.cc )
-target_link_libraries(los2 z  common)
+#add_executable(los2 los2.cc )
+#target_link_libraries(los2 z  common)
 
-add_executable(los3 los3.cc )
-target_link_libraries(los3 z  common)
+#add_executable(los3 los3.cc )
+#target_link_libraries(los3 z  common)
 
 find_package (Eigen3 3.3 REQUIRED NO_MODULE)
 
