@@ -59,7 +59,6 @@ int main()
   lr.identity(0.01);
 
   for(unsigned int n = 0 ; n < mn.num(); ++n) {
-    
     int label = mn.getLabel(n);
     if(label != 3 && label != 7)
       continue;
@@ -72,7 +71,7 @@ int main()
 
     Tensor img(28,28);
     mn.pushImage(n, img);
-    float res = (img.dot(weights).sum()(0,0)); // the calculation
+    float res = (img.dot(weights).sum()(0,0)) + bias; // the calculation
     if(count == 25001) {
       auto prod = img.dot(weights);
       saveTensor(img, "random-image.png", 252, true);
@@ -84,12 +83,12 @@ int main()
     if(label == 7) {
       if(res < 2.0) {
         weights.raw() = weights.raw() + img.raw() * lr.raw();
-        bias += 0.1;
+        bias += 0.01;
       }
     } else {
       if(res > -2.0) {
         weights.raw() = weights.raw() - img.raw() * lr.raw();
-        bias -= 0.1;
+        bias -= 0.01;
       }
     }
     
@@ -98,4 +97,5 @@ int main()
   }
   saveTensor(weights, "weights-final.png", 252);
   doTest(mntest, weights, bias, &sqw);
+  cout<<"Bias: "<<bias<<endl;
 }
