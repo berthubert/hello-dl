@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <math.h>
 #include <unordered_set>
+#include <unordered_map>
 #include "fvector.hh"
 #include "trackedfuncs.hh"
 extern std::ofstream g_tree;
