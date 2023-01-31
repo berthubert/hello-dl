@@ -8,16 +8,16 @@
 #include "misc.hh"
 #include <fenv.h>
 #include "tensor-layers.hh"
+#include "ext/sqlitewriter/sqlwriter.hh"
 using namespace std;
 
-  
 struct ReluDigitModel {
   Tensor<float> img{28,28};
   Tensor<float> scores{10, 1};
   Tensor<float> expected{1,10};
   Tensor<float> loss{1,1};
   struct State : public ModelState<float>
-  {
+  { //            IN     OUT
     Linear<float, 28*28, 128> lc1;
     Linear<float, 128,    64> lc2;
     Linear<float, 64,     10> lc3;
@@ -36,18 +36,21 @@ struct ReluDigitModel {
     auto output4 = makeFunction<ReluFunc>(output3);
     auto output5 = s.lc3.forward(output4);
     scores = makeLogSoftMax(output5);
-    loss = -(expected*scores).sum();
+    loss = -(expected*scores);
   }
 };
 
 template<typename M>
-void testModel(M& m, const MNISTReader& mn)
+void testModel(M& m, const MNISTReader& mn, SQLiteWriter& sqw, int batchno, bool full=false)
 {
   Batcher b(mn.num());
-  auto batch = b.getBatch(128);
+  auto batch = b.getBatch(full ? mn.num() : 128);
   float totalLoss=0;
   int corrects=0, wrongs=0;
   auto topo = m.loss.getTopo();
+
+  Tensor confusion(10, 10);
+  
   for(const auto& idx : batch) {
     m.loss.zerograd(topo);
     mn.pushImage(idx, m.img);
@@ -67,9 +70,18 @@ void testModel(M& m, const MNISTReader& mn)
     if(predicted == label)
       corrects++;
     else wrongs++;
-
+    confusion(label, predicted)++;
   }
-  cout<<"Validation batch average loss: "<<totalLoss/batch.size()<<", percentage correct: "<<(100.0*corrects/(corrects+wrongs))<<"%\n";
+  double avgloss = totalLoss/batch.size();
+  double corperc = (100.0*corrects/(corrects+wrongs));
+  cout<<"Validation batch average loss: "<< avgloss <<", percentage correct: "<<corperc<<"%\n";
+  
+  sqw.addValue({{"batchno", batchno}, {"corperc", corperc}, {"avgloss", avgloss}}, "validation");
+  if(full) {
+    for(int r=0; r < 10; ++r)
+      for(int c=0; c < 10; ++c)
+        sqw.addValue({{"r", r}, {"c", c}, {"count", confusion(r,c)}}, "confusion");
+  }
 }
 
 int main(int argc, char** argv)
@@ -92,12 +104,16 @@ int main(int argc, char** argv)
 
   m.init(s);
 
+  unlink("tensor-relu.sqlite3");
+  SQLiteWriter sqw("tensor-relu.sqlite3");
+  
   auto topo = m.loss.getTopo();
   
-  Batcher batcher(mn.num()); 
+  Batcher batcher(mn.num());
+  
   for(unsigned int tries = 0 ;; ++tries) {
     if(!(tries % 32)) {
-      testModel(m, mntest);
+      testModel(m, mntest, sqw, tries);
       saveModelState(s, "tensor-relu.state");
     }
     
@@ -113,8 +129,7 @@ int main(int argc, char** argv)
 
       mn.pushImage(idx, m.img);
       int label = mn.getLabel(idx);
-      m.expected.zero();
-      m.expected(0, label) = 1;
+      m.expected.oneHotColumn(label);
 
       totalLoss += m.loss(0,0); // turns it into a float
       
@@ -135,10 +150,18 @@ int main(int argc, char** argv)
       // clear grads & havevalue
       m.loss.zerograd(topo);
     }
-    cout<<tries<<": Average loss " << totalLoss/batch.size()<<", percent batch correct "<<100.0*corrects/(corrects+wrongs)<<"%\n";
+
+    double avgloss = totalLoss/batch.size();
+    double corperc = (100.0*corrects/(corrects+wrongs));
+
+    cout<<tries<<": Average loss " << avgloss <<", percent batch correct "<< corperc <<"%\n";
+
+    double lr=0.01;
+    sqw.addValue({{"batchno", tries}, {"corperc", corperc}, {"avgloss", avgloss}, {"lr", lr}}, "training");
     
-    double lr=0.1 / batch.size();
-    s.learn(lr);
+
+    s.learn(lr/batch.size());
   }
+  testModel(m, mntest, sqw, mn.num()/64, true);  
 }
 
