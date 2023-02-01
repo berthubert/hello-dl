@@ -16,21 +16,12 @@ set(CMAKE_CXX_EXTENSIONS ON)
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads REQUIRED)
-
-#add_executable(hello-dl hello-dl.cc mnistreader.cc)
-#target_link_libraries(hello-dl
-#  z
-#)
+find_package (Eigen3 3.3 REQUIRED NO_MODULE)
 
 add_library(common OBJECT mnistreader.cc textsupport.cc )
 #add_library(gui OBJECT ui.cc ext/imgui/imgui.cpp  ext/imgui/imgui_demo.cpp  ext/imgui/imgui_draw.cpp  ext/imgui/imgui_tables.cpp  ext/imgui/imgui_widgets.cpp ext/imgui/backends/imgui_impl_glfw.cpp ext/imgui/backends/imgui_impl_opengl3.cpp ext/implot-master/implot.cpp ext/implot-master/implot_items.cpp ext/implot-master/implot_demo.cpp)
 
 
-#add_executable(tensor tensor.cc)
-#target_link_libraries(tensor z  common)
-
-#add_executable(first-relu first-relu.cc )
-#target_link_libraries(first-relu z  common)
 
 add_executable(tensor-relu tensor-relu.cc ext/sqlitewriter/sqlwriter.cc)
 target_link_libraries(tensor-relu z  common Eigen3::Eigen sqlite3 Threads::Threads)
@@ -56,6 +47,14 @@ target_link_libraries(imagine z  common Eigen3::Eigen Threads::Threads )
 
 add_executable(tensor-gru tensor-gru.cc )
 target_link_libraries(tensor-gru z  common Eigen3::Eigen Threads::Threads )
+
+add_executable(testrunner testrunner.cc arraytests.cc testfvector.cc grutest.cc tensor2test.cc tensormodtest.cc)
+
+target_link_libraries(testrunner  z  common Eigen3::Eigen)
+
+enable_testing()
+add_test(testname testrunner)
+
 
 
 #add_executable(first-convo first-convo.cc )
@@ -98,11 +97,10 @@ target_link_libraries(mnistposter z  common)
 #add_executable(los3 los3.cc )
 #target_link_libraries(los3 z  common)
 
-find_package (Eigen3 3.3 REQUIRED NO_MODULE)
+#add_executable(tensor tensor.cc)
+#target_link_libraries(tensor z  common)
 
-add_executable(testrunner testrunner.cc arraytests.cc testfvector.cc grutest.cc workertest.cc tensor2test.cc tensormodtest.cc)
+#add_executable(first-relu first-relu.cc )
+#target_link_libraries(first-relu z  common)
 
-target_link_libraries(testrunner  z  common Eigen3::Eigen)
 
-enable_testing()
-add_test(testname testrunner)

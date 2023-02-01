@@ -29,7 +29,7 @@ struct FontWriter
   FontWriter();
   void writeChar(char ch, int s, int c, int r, std::function<void(int, int, int, int, int)> f);
   stbtt_fontinfo d_font;
-  unsigned char d_ttf_buffer[1<<18]; // this is astoundingly ugh
+  std::vector<char> d_ttf_buffer; 
 };
 
 void saveTensor(const Tensor<float>& t, const std::string& fname, int size, bool monochrome=false);
