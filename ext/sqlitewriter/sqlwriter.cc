@@ -31,7 +31,7 @@ vector<pair<string,string> > MiniSQLite::getSchema(const std::string& table)
   return ret;
 }
 
-int MiniSQLite::helperFunc(void* ptr, int cols, char** colvals, char** colnames)
+int MiniSQLite::helperFunc(void* ptr, int cols, char** colvals, char** colnames [[maybe_unused]])
 {
   vector<string> row;
   row.reserve(cols);
@@ -225,8 +225,6 @@ void SQLiteWriter::addValueGeneric(const std::string& table, const T& values)
     for(const auto& p : values)
       d_lastsig[table].push_back(p.first);
   }
-  else
-    ;//cout<<"We can reuse old statement"<<endl;
   
   int n = 1;
   for(const auto& p : values) {
