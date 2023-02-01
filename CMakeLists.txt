@@ -33,29 +33,29 @@ add_library(common OBJECT mnistreader.cc textsupport.cc )
 #target_link_libraries(first-relu z  common)
 
 add_executable(tensor-relu tensor-relu.cc ext/sqlitewriter/sqlwriter.cc)
-target_link_libraries(tensor-relu z  common Eigen3::Eigen sqlite3)
+target_link_libraries(tensor-relu z  common Eigen3::Eigen sqlite3 Threads::Threads)
 
 add_executable(tensor-convo tensor-convo.cc ext/sqlitewriter/sqlwriter.cc )
-target_link_libraries(tensor-convo z  common Eigen3::Eigen sqlite3) 
+target_link_libraries(tensor-convo z  common Eigen3::Eigen sqlite3 Threads::Threads) 
 
 add_executable(img-ocr img-ocr.cc vizi.cc )
-target_link_libraries(img-ocr z  common Eigen3::Eigen ) 
+target_link_libraries(img-ocr z  common Eigen3::Eigen Threads::Threads) 
 
 add_executable(threeorseven threeorseven.cc vizi.cc ext/sqlitewriter/sqlwriter.cc)
-target_link_libraries(threeorseven z  common Eigen3::Eigen sqlite3 ) 
+target_link_libraries(threeorseven z  common Eigen3::Eigen sqlite3 Threads::Threads) 
 
 add_executable(37learn 37learn.cc vizi.cc ext/sqlitewriter/sqlwriter.cc)
-target_link_libraries(37learn z  common Eigen3::Eigen sqlite3 ) 
+target_link_libraries(37learn z  common Eigen3::Eigen sqlite3 Threads::Threads) 
 
 add_executable(basic-autograd basic-autograd.cc)
-target_link_libraries(basic-autograd z  common Eigen3::Eigen  ) 
+target_link_libraries(basic-autograd z  common Eigen3::Eigen Threads::Threads ) 
 
 add_executable(imagine imagine.cc vizi.cc)
-target_link_libraries(imagine z  common Eigen3::Eigen  ) 
+target_link_libraries(imagine z  common Eigen3::Eigen Threads::Threads ) 
 
 
 add_executable(tensor-gru tensor-gru.cc )
-target_link_libraries(tensor-gru z  common Eigen3::Eigen )
+target_link_libraries(tensor-gru z  common Eigen3::Eigen Threads::Threads )
 
 
 #add_executable(first-convo first-convo.cc )
