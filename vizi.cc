@@ -13,10 +13,11 @@ using namespace std;
 
 FontWriter::FontWriter()
 {
-  FILE* fp = fopen("/usr/share/fonts/truetype/msttcorefonts/Times_New_Roman_Bold.ttf", "rb");
-  fread(d_ttf_buffer, 1, 1<<18, fp);
-  fclose(fp);
-  stbtt_InitFont(&d_font, d_ttf_buffer, stbtt_GetFontOffsetForIndex(d_ttf_buffer,0));
+  std::ifstream in("/usr/share/fonts/truetype/msttcorefonts/Times_New_Roman_Bold.ttf", std::ios::binary);
+  d_ttf_buffer.assign(std::istreambuf_iterator<char>(in),
+                      std::istreambuf_iterator<char>());
+  
+  stbtt_InitFont(&d_font, (const unsigned char*)&d_ttf_buffer[0], stbtt_GetFontOffsetForIndex((const unsigned char*)&d_ttf_buffer[0],0));
 }
 
 void FontWriter::writeChar(char ch, int s, int c, int r, std::function<void(int, int, int, int, int)> f)
