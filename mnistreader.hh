@@ -22,22 +22,15 @@ public:
     else
       throw std::runtime_error("Could not find image "+std::to_string(n));
   }
-  /*
-  void pushImage(int n, NNArray<float, 28, 28>& dest) const
-  {
-    const auto& src = getImageFloat(n);
-    for(int row=0 ; row < 28; ++row)
-      for(int col=0 ; col < 28; ++col)
-        dest(row, col) = src.at(row+28*col);
-  }
-  */
+
   template<typename T>
   void pushImage(int n, Tensor<T>& dest) const
   {
     assert(dest.d_imp && dest.d_imp->d_mode == TMode::Parameter);
     const auto& src = getImageFloat(n);
-    for(unsigned int pos = 0 ; pos < src.size(); ++pos)
-      dest.d_imp->d_val.reshaped()(pos) = src.at(pos);
+    for(int row=0 ; row < 28; ++row)
+      for(int col=0 ; col < 28; ++col)
+        dest(row, col) = src.at(row+28*col);
   }
   /*
   template<typename UT>
