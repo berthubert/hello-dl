@@ -5,11 +5,11 @@
 #include "ext/stb/stb_truetype.h"
 
 template<typename T>
-void printImg(const T& img)
+void printImgTensor(const T& img)
 {
   for(unsigned int y=0; y < img.getRows(); ++y) {
     for(unsigned int x=0; x < img.getCols(); ++x) {
-      float val = img(y,x).getVal();
+      float val = img(y,x);
       if(val > 0.5)
         std::cout<<'X';
       else if(val > 0.25)

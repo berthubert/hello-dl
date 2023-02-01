@@ -55,7 +55,6 @@ struct SquareFunc
   }
 };
 
-
 struct TanhFunc
 {
   static float func(float f)
@@ -298,11 +297,9 @@ struct TensorImp
       d_lhs->d_grads.block(d_slicep.r, d_slicep.c, d_slicep.h, d_slicep.w) += d_grads;
     }
     else if(d_mode == TMode::Sum) {
-      using namespace std;
       d_lhs->d_grads.array() += d_grads(0,0);
     }
     else if(d_mode == TMode::LogSoftMax) {
-      // I cargo culted this so it produces the same numbers as PyTorch
       d_lhs->d_grads.array() += d_grads.array() - d_val.array().exp()*d_grads.sum();
       // it looks like magic, but it really works: https://stackoverflow.com/questions/35304393/trying-to-understand-code-that-computes-the-gradient-wrt-to-the-input-for-logsof
       // https://github.com/torch/nn/blob/master/lib/THNN/generic/LogSoftMax.c
@@ -745,22 +742,3 @@ std::ostream& operator<<(std::ostream& os, const Tensor<T>& ns)
   return os;
 }
 
-template<typename T>
-void printImgTensor(const T& img)
-{
-  for(unsigned int y=0; y < img.getRows(); ++y) {
-    for(unsigned int x=0; x < img.getCols(); ++x) {
-      float val = img(y,x);
-      if(val > 0.5)
-        std::cout<<'X';
-      else if(val > 0.25)
-        std::cout<<'*';
-      else if(val > 0.125)
-        std::cout<<'.';
-      else
-        std::cout<<' ';
-    }
-    std::cout<<'\n';
-  }
-  std::cout<<"\n";
-}
