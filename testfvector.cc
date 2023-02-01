@@ -42,7 +42,7 @@ TEST_CASE("dev fvect8 test") {
   fvector<8> val({1.0, 2.0, 3.0, 4., 5., 6., 7., 8.});
   auto inv = 1.0/val;
 
-  CHECK(inv.v[0]==1);
+  CHECK(inv.v[0]==doctest::Approx(1.0));
   CHECK(inv.v[4]==doctest::Approx(0.2));
 }
 
