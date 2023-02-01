@@ -82,10 +82,10 @@ struct SigmoidFunc
   }
 };
 
-
 template<typename T=float>
 struct TensorImp
 {
+  using EigenMatrix = Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>;
   typedef TensorImp<T> us_t;
   TensorImp() : d_mode(TMode::Unassigned)
   {}
@@ -93,9 +93,9 @@ struct TensorImp
   //! Create a new parameter (value) tensor. Inits everything to zero.
   TensorImp(unsigned int rows, unsigned int cols) :  d_mode(TMode::Parameter)
   {
-    d_val = Eigen::MatrixX<T>(rows, cols);
-    d_grads = Eigen::MatrixX<T>(rows, cols);
-    d_accumgrads = Eigen::MatrixX<T>(rows, cols);
+    d_val = EigenMatrix(rows, cols);
+    d_grads = EigenMatrix(rows, cols);
+    d_accumgrads = EigenMatrix(rows, cols);
     d_grads.setZero();
     d_val.setZero();
     d_accumgrads.setZero();
@@ -148,7 +148,7 @@ struct TensorImp
     else if(d_mode == TMode::Dropout) {       // this does PyTorch-style scaling
       d_lhs->assureValue();
       
-      d_rhs->d_val = Eigen::MatrixX<float>(d_lhs->d_val.rows(), d_lhs->d_val.cols());
+      d_rhs->d_val = EigenMatrix(d_lhs->d_val.rows(), d_lhs->d_val.cols());
       float rate = d_randomp.rate;
       // rate = 0.9 means "drop most things"
       d_rhs->d_val = d_rhs->d_val.unaryExpr(
@@ -168,15 +168,16 @@ struct TensorImp
       size_t siz=0;
       for(auto& m : d_flattenp.members) {
         m->assureValue();
-        siz +=m->d_val.reshaped().rows();
+        siz += m->d_val.rows() * m->d_val.cols();
       }
 
-      d_val = Eigen::MatrixX<T>(siz, 1);
+      d_val = EigenMatrix(siz, 1);
       int pos=0;
               
       for(auto& m : d_flattenp.members) {
-        for(int c=0; c < m->d_val.reshaped().rows(); ++c)
-          d_val(pos++, 0)= m->d_val.reshaped()(c, 0);
+        for(int c=0; c < m->d_val.cols(); ++c)
+          for(int r=0; r < m->d_val.rows(); ++r)
+            d_val(pos++, 0) = m->d_val(r, c);
       }
     }
     else if(d_mode == TMode::Func) {
@@ -193,7 +194,7 @@ struct TensorImp
       d_lhs->assureValue();
       d_rhs->assureValue(); // the weights
       
-      d_val = Eigen::MatrixX<T>(1 + d_lhs->d_val.rows() - d_convop.kernel, 1 + d_lhs->d_val.cols() - d_convop.kernel);
+      d_val = EigenMatrix(1 + d_lhs->d_val.rows() - d_convop.kernel, 1 + d_lhs->d_val.cols() - d_convop.kernel);
       for(int r = 0 ; r < d_val.rows(); ++r)
         for(int c = 0 ; c < d_val.cols(); ++c)
           d_val(r,c) = d_lhs->d_val.block(r, c, d_convop.kernel, d_convop.kernel).cwiseProduct(d_rhs->d_val).sum()
@@ -202,7 +203,7 @@ struct TensorImp
     else if(d_mode == TMode::Max2D) {
       d_lhs->assureValue();
       // round up in case of padding
-      d_val = Eigen::MatrixX<T>((d_lhs->d_val.rows()+d_max2dp.kernel-1)/d_max2dp.kernel,
+      d_val = EigenMatrix((d_lhs->d_val.rows()+d_max2dp.kernel-1)/d_max2dp.kernel,
                                 (d_lhs->d_val.cols()+d_max2dp.kernel-1)/d_max2dp.kernel);
       for(int r = 0 ; r < d_lhs->d_val.rows(); r += d_max2dp.kernel)
         for(int c = 0 ; c < d_lhs->d_val.cols(); c += d_max2dp.kernel) {
@@ -264,8 +265,9 @@ struct TensorImp
     else if(d_mode == TMode::Flatten) {
       int gradpos=0;
       for(auto& m : d_flattenp.members)
-        for(int r=0; r < m->d_grads.reshaped().rows(); ++r)
-          m->d_grads.reshaped()(r, 0) += d_grads.reshaped()(gradpos++, 0);
+        for(int c=0; c < m->d_grads.cols(); ++c)
+          for(int r=0; r < m->d_grads.rows(); ++r)
+            m->d_grads(r, c) += d_grads(gradpos++, 0);
     }
     else if(d_mode == TMode::Addition) {
       d_lhs->d_grads += d_grads;
@@ -359,7 +361,7 @@ struct TensorImp
     }
   }
   
-  mutable Eigen::MatrixX<T> d_val, d_grads, d_prevaccumgrads, d_accumgrads;
+  mutable EigenMatrix d_val, d_grads, d_prevaccumgrads, d_accumgrads;
   std::function<T(T)> d_func, d_deriv;
   std::shared_ptr<us_t> d_lhs, d_rhs;
   TMode d_mode;
@@ -395,6 +397,7 @@ struct TensorImp
 template<typename T=float>
 struct Tensor
 {
+  using EigenMatrix = Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>;
   typedef Tensor<T> us_t;
   Tensor() : d_imp(std::make_shared<TensorImp<T>>())
   {}
@@ -418,7 +421,7 @@ struct Tensor
     return (*d_imp)(x, y);
   }
 
-  Eigen::MatrixX<T>& raw()
+  EigenMatrix& raw()
   {
     assert(d_imp->d_mode == TMode::Parameter);
     return d_imp->d_val;
@@ -481,7 +484,7 @@ struct Tensor
   {
     for(auto iter = topo.rbegin(); iter != topo.rend(); ++iter) {
       (*iter)->d_prevaccumgrads = (*iter)->d_accumgrads;
-      (*iter)->d_accumgrads = Eigen::MatrixX<T>::Constant((*iter)->d_grads.rows(), (*iter)->d_grads.cols(), 0.0F);
+      (*iter)->d_accumgrads = EigenMatrix::Constant((*iter)->d_grads.rows(), (*iter)->d_grads.cols(), 0.0F);
     }
   }
   
@@ -492,17 +495,17 @@ struct Tensor
     }
   }
   
-  Eigen::MatrixX<T> getGrad()
+  EigenMatrix getGrad()
   {
     return d_imp->d_grads;
   }
 
-  Eigen::MatrixX<T> getPrevAccumGrad()
+  EigenMatrix getPrevAccumGrad()
   {
     return d_imp->d_prevaccumgrads;
   }
 
-  Eigen::MatrixX<T> getAccumGrad()
+  EigenMatrix getAccumGrad()
   {
     return d_imp->d_accumgrads;
   }
@@ -510,7 +513,7 @@ struct Tensor
   void randomize(float fact)
   {
     d_imp->d_mode = TMode::Parameter;
-    d_imp->d_val = Eigen::MatrixX<T>::Random(d_imp->d_val.rows(), d_imp->d_val.cols()); // uniform -1..1
+    d_imp->d_val = EigenMatrix::Random(d_imp->d_val.rows(), d_imp->d_val.cols()); // uniform -1..1
     d_imp->d_val.array() *= fact;
   }
 
@@ -526,7 +529,7 @@ struct Tensor
   void constant(float f)
   {
     d_imp->d_mode = TMode::Parameter;
-    d_imp->d_val = Eigen::MatrixX<T>::Constant(d_imp->d_val.rows(), d_imp->d_val.cols(), f); 
+    d_imp->d_val = EigenMatrix::Constant(d_imp->d_val.rows(), d_imp->d_val.cols(), f); 
   }
   void iota(float f)
   {
@@ -547,7 +550,7 @@ struct Tensor
     }
   }
   
-  auto& operator-=(const Eigen::MatrixX<T>& rhs)
+  auto& operator-=(const EigenMatrix& rhs)
   {
     d_imp->d_val -= rhs;
     return *this;
