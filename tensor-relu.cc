@@ -9,6 +9,7 @@
 #include <fenv.h>
 #include "tensor-layers.hh"
 #include "ext/sqlitewriter/sqlwriter.hh"
+#include "vizi.hh"
 using namespace std;
 
 struct ReluDigitModel {
