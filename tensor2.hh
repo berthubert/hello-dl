@@ -491,6 +491,28 @@ struct Tensor
       (*iter)->d_accumgrads += (*iter)->d_grads;
     }
   }
+
+  void copyParams(const std::vector<TensorImp<T>*> from, const std::vector<TensorImp<T>*> to)
+  {
+    assert(from.size() == to.size());
+    for(size_t pos = 0 ; pos < from.size(); ++pos) {
+      if(from[pos]->d_mode == TMode::Parameter) {
+        assert(to[pos]->d_mode == TMode::Parameter);
+        to[pos]->d_val = from[pos]->d_val;
+      }
+    }
+  }
+
+  void addAccumGrads(const std::vector<TensorImp<T>*> from, const std::vector<TensorImp<T>*> to)
+  {
+    assert(from.size() == to.size());
+    for(size_t pos = 0 ; pos < from.size(); ++pos) {
+      if(from[pos]->d_mode == TMode::Parameter) {
+        assert(to[pos]->d_mode == TMode::Parameter);
+        to[pos]->d_accumgrads += from[pos]->d_accumgrads;
+      }
+    }
+  }
   
   EigenMatrix getGrad()
   {
