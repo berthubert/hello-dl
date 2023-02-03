@@ -29,6 +29,10 @@ target_link_libraries(tensor-relu z  common Eigen3::Eigen sqlite3 Threads::Threa
 add_executable(tensor-convo tensor-convo.cc ext/sqlitewriter/sqlwriter.cc )
 target_link_libraries(tensor-convo z  common Eigen3::Eigen sqlite3 Threads::Threads) 
 
+add_executable(tensor-convo-par tensor-convo-par.cc ext/sqlitewriter/sqlwriter.cc )
+target_link_libraries(tensor-convo-par z common Eigen3::Eigen sqlite3 Threads::Threads) 
+
+
 add_executable(img-ocr img-ocr.cc vizi.cc )
 target_link_libraries(img-ocr z  common Eigen3::Eigen Threads::Threads) 
 
@@ -81,8 +85,8 @@ add_test(testname testrunner)
 #target_link_libraries(modular-threaded-convo z  common)
 
 
-#add_executable(try-convo try-convo.cc )
-#target_link_libraries(try-convo z  common)
+add_executable(try-convo try-convo.cc vizi.cc)
+target_link_libraries(try-convo z  common Threads::Threads)
 
 
 #add_executable(los los.cc )

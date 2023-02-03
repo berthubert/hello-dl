@@ -3,59 +3,40 @@
 #include "mnistreader.hh"
 #include "misc.hh"
 #include <string.h>
-
 #include <fenv.h>
-#include "cnn1.hh"
-using namespace std;
+#include "tensor-layers.hh"
+#include "vizi.hh"
 
-ofstream g_tree; //("tree.part");
+using namespace std;
 
 int main(int argc, char** argv)
 {
-  if(argc <  3) {
-    cerr<<"Syntax: try-convo model-file index"<<endl;
+  if(argc <  2) {
+    cerr<<"Syntax: try-convo index"<<endl;
     return 0;
   }
 
   feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW );
 
-  // MNISTReader mntest("gzip/emnist-digits-test-images-idx3-ubyte.gz", "gzip/emnist-digits-test-labels-idx1-ubyte.gz");
   MNISTReader mntest("gzip/emnist-letters-test-images-idx3-ubyte.gz", "gzip/emnist-letters-test-labels-idx1-ubyte.gz");
-
-
   cout<<"Have "<<mntest.num()<<" validation images"<<endl;
 
-  CNNModel m;
-  CNNModel::State s;
+  Tensor img(28, 28);
+  
+  int idx = atoi(argv[1]);
+  mntest.pushImage(idx, img);
 
-  cout<<"Loading model state from "<<argv[1]<<endl;
-  loadModelState(s, argv[1]);
+  Conv2d<float, 28, 28, 3, 1, 1> convo;
+  auto& f1 = convo.d_filters[0];
+  f1(0,0) = -1;  f1(0,1) = -1; f1(0,2)=1;
+  f1(1,0) = -1;  f1(0,1) = -1; f1(1,2)=1;
+  f1(2,0) =  1;  f1(2,1) =  1; f1(2,2)=1;
 
-  m.init(s);
+  convo.d_bias[0](0,0) = 0;
 
-  int idx = atoi(argv[2]);
-  mntest.pushImage(idx, m.img);
-
-  int prediction = m.scores.maxValueIndexOfColumn(0);
-  int label=mntest.getLabel(idx);
-  cout<<"Our prediction: "<<prediction<<", label: "<<label<<endl;
-  printImg(m.img);
-
-  std::vector<pair<double, int>> scores;
-  for(int n=0; n < 10; ++n) {
-    scores.push_back({-m.scores(n,0).getVal(), n});
-  }
-  sort(scores.begin(), scores.end());
-  string stars;
-  for(const auto& s : scores) {
-    cout<<s.second<<": "<<-s.first;
-    stars ="\t";
-    if(s.second == label)
-      stars += "!\t";
-    else
-      stars += "\t";
-    stars.append((int)(30*exp(-s.first)), '*');
-    cout<<stars<<endl;
-  }
-
+  Tensor out = convo.forward(img)[0].makeMax2d(2);
+  out(0,0);
+  cout<<"out:\n"<<out<<endl;
+  saveTensor(img, "input.png", 252, true);
+  saveTensor(out, "convolved.png", 9*out.getRows(), false);
 }
