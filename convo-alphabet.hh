@@ -28,39 +28,23 @@ struct ConvoAlphabetModel {
   
   void init(State& s, bool production=false)
   {
+    using ActFunc = GeluFunc;
+
     img.zero();
     img.d_imp->d_nograd=true;
-    auto step1 = s.c1.forward(img);
-
-    using ActFunc = GeluFunc;
     
-    std::array<Tensor<float>, 32> step2; // 13x13
-    unsigned ctr=0;
-    for(auto& p : step2)
-      p = makeFunction<ActFunc>(step1[ctr++].makeMax2d(2));
-
-    std::array<Tensor<float>, 64> step3 = s.c2.forward(step2);  // 11x11
-    std::array<Tensor<float>, 64> step4;                   // 6x6
-
-    ctr=0;
-    for(auto& p : step4) {
-      p = makeFunction<ActFunc>(step3[ctr++].makeMax2d(2));
-    }
-
-    std::array<Tensor<float>, 128> step5 = s.c3.forward(step4); // 4x4
-    std::array<Tensor<float>, 128> step6;                  // 2x2
-
-    ctr=0;
-    for(auto& p : step6) {
-      p = makeFunction<ActFunc>(step5[ctr++].makeMax2d(2));
-    }
-    
-    Tensor<float> flat = makeFlatten(step6); // 2*2*128 * 1
-    auto output = s.fc1.forward(flat);
+    auto step1 = s.c1.forward(img);    // -> 26x26, 32 layers
+    auto step2 = Max2dfw(step1, 2);    // -> 13x13
+    auto step3 = s.c2.forward(step2);  // -> 11x11, 64 layers
+    auto step4 = Max2dfw(step3, 2);    // -> 6x6 (padding)
+    auto step5 = s.c3.forward(step4);  // -> 4x4, 128 layers
+    auto step6 = Max2dfw(step5, 2);    // -> 2x2
+    auto flat = makeFlatten(step6);    // -> 512x1
+    auto output = s.fc1.forward(flat); // -> 64
     auto output1 = production ? output : output.makeDropout(0.5); 
     auto output2 = makeFunction<ActFunc>(output1);
-    auto output3 = makeFunction<ActFunc>(s.fc2.forward(output2));
-    auto output4 = makeFunction<ActFunc>(s.fc3.forward(output3));
+    auto output3 = makeFunction<ActFunc>(s.fc2.forward(output2)); // -> 128
+    auto output4 = makeFunction<ActFunc>(s.fc3.forward(output3)); // -> 26
     scores = makeLogSoftMax(output4);
     modelloss = -(expected*scores).sum();
 
