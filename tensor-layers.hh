@@ -125,16 +125,13 @@ struct Conv2d : TensorLayer<T>
 
   void randomize()
   {
-    for(auto& f : d_filters) {
+    for(auto& f : d_filters) 
       f.randomize(sqrt(1.0/(INLAYERS*KERNEL*KERNEL)));
-    }
-    for(auto& b : d_bias) {
+    for(auto& b : d_bias) 
       b.randomize(sqrt(1.0/(INLAYERS*KERNEL*KERNEL)));
-    }
   }
-
   
-  auto forward(Tensor<T>& in)
+  auto forward(Tensor<T>& in) // convenience
   {
     std::array<Tensor<T>, 1> a;
     a[0] = in;
@@ -151,7 +148,7 @@ struct Conv2d : TensorLayer<T>
     // The output layers of the next convo2d have OUT filters
     // these filters need to be applied to all IN input layers
     // and the output is the addition of the outputs of those filters
-    
+    //    https://d2l.ai/chapter_convolutional-neural-networks/channels.html
     unsigned int ctr = 0;
     for(auto& p : ret) { // outlayers long
       p.zero();
@@ -171,7 +168,17 @@ struct Conv2d : TensorLayer<T>
     return ret;
   }
 };
+  
+template<typename T, std::size_t LAYERS>
+auto Max2dfw(std::array<Tensor<T>, LAYERS>& in, int kernel)
+{
+  std::array<Tensor<T>, LAYERS> ret;
 
+  for(unsigned int ctr = 0 ; ctr < LAYERS; ++ctr)
+    ret[ctr] = in[ctr].makeMax2d(kernel);
+  return ret;
+}
+  
 template<typename T>
 struct ModelState
 {
