@@ -15,12 +15,12 @@
 using namespace std;
 
 template<typename M, typename S>
-void testModel(SQLiteWriter& sqw, S& s, const MNISTReader& mn, unsigned int startID, int batchno, std::mt19937& rangen)
+void testModel(SQLiteWriter& sqw, S& s, const MNISTReader& mn, unsigned int startID, int batchno)
 {
   M m;
   m.init(s, true); // production
   
-  Batcher b(mn.num(), rangen);
+  Batcher b(mn.num());
   auto batch = b.getBatch(128);
   float totalLoss=0;
   int corrects=0, wrongs=0;
@@ -50,7 +50,6 @@ void testModel(SQLiteWriter& sqw, S& s, const MNISTReader& mn, unsigned int star
     if(predicted == label)
       corrects++;
     else wrongs++;
-
   }
   double perc=100.0*corrects/(corrects+wrongs);
   cout<<"Validation batch average loss: "<<totalLoss/batch.size()<<", percentage correct: "<<perc<<", took "<<dt.lapUsec()/1000<<" ms for "<<batch.size()<<" images\n";
@@ -65,7 +64,6 @@ void testModel(SQLiteWriter& sqw, S& s, const MNISTReader& mn, unsigned int star
 
 int main(int argc, char **argv)
 {
-  cout<<"Start!"<<endl;
   feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW );
 
   MNISTReader mn("gzip/emnist-letters-train-images-idx3-ubyte.gz", "gzip/emnist-letters-train-labels-idx1-ubyte.gz");
@@ -75,7 +73,6 @@ int main(int argc, char **argv)
 
   ConvoAlphabetModel m;
   ConvoAlphabetModel::State s;
-  srandom(0);
 
   if(argc==2) {
     cout<<"Loading model state from file '"<<argv[1]<<"'\n";
@@ -83,10 +80,6 @@ int main(int argc, char **argv)
   }
   else
     s.randomize();
-
-  //  std::random_device rd;
-  //  std::mt19937 rangen(rd());
-  std::mt19937 rangen(0);
   
   m.init(s);
 
@@ -99,7 +92,7 @@ int main(int argc, char **argv)
   int batchno = 0;
 
   for(;;) {
-    Batcher batcher(mn.num(), rangen);
+    Batcher batcher(mn.num());
 
     DTime dt;
     for(unsigned int tries = 0 ;; ++tries) {
@@ -108,7 +101,7 @@ int main(int argc, char **argv)
         break;
 
       if(!(tries % 32)) {
-        testModel<ConvoAlphabetModel>(sqw, s, mntest, startID, batchno, rangen);
+        testModel<ConvoAlphabetModel>(sqw, s, mntest, startID, batchno);
         saveModelState(s, "tensor-convo.state");
       }
       if(batchno < 32 || !(tries%32)) {
@@ -128,7 +121,7 @@ int main(int argc, char **argv)
         // normalize
         m.img.normalize(0.172575, 0.25);
         
-        int label = mn.getLabel(idx) -1;
+        int label = mn.getLabel(idx) -1; // they count from 1 over at NIST!
         m.expected.oneHotColumn(label);
         
         totalLoss += m.modelloss(0,0); // turns it into a float
@@ -153,20 +146,15 @@ int main(int argc, char **argv)
       double perc = 100.0*corrects/(corrects+wrongs);
       cout<<"Batch "<<batchno<<" average loss " << totalLoss/batch.size()<<", weightsloss " <<totalWeightsLoss/batch.size()<<", percent batch correct "<<perc<<"%, "<<dt.lapUsec()/1000<<"ms/batch"<<endl;
 
-      double lr=0.002 / batch.size(); // 0.010 works well at the beginning
+      double lr=0.010 / batch.size(); // 0.010 works well at the beginning
       double momentum = 0.9;
       s.learn(lr, momentum);
 
       // tcsv<<"batchno,cputime,corperc,avgloss,batchsize,lr,momentum"<<endl;
       sqw.addValue({
-          {"startID", startID},
-          {"batchno", batchno},
-          {"cputime", (double)clock()/CLOCKS_PER_SEC},
-          {"corperc", perc},
-          {"avgloss", totalLoss/batch.size()},
-          {"batchsize", (int)batch.size()},
-          {"lr", lr*batch.size()},
-          {"momentum", momentum}}, "training");
+          {"startID", startID}, {"batchno", batchno},   {"cputime", (double)clock()/CLOCKS_PER_SEC},
+          {"corperc", perc},    {"avgloss", totalLoss/batch.size()},
+          {"batchsize", (int)batch.size()}, {"lr", lr*batch.size()}, {"momentum", momentum}}, "training");
     }
   }
 }
