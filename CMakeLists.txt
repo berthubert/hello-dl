@@ -6,8 +6,8 @@ project(hello-dl VERSION 1.0
                   LANGUAGES CXX)
 
 
-#add_compile_options(-fsanitize=memory)
-#add_link_options(-fsanitize=memory)
+#add_compile_options(-fsanitize=address)
+#add_link_options(-fsanitize=address)
                 
 set(CMAKE_CXX_STANDARD 17 CACHE STRING "The C++ standard to use")
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
