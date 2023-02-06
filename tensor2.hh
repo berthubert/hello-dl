@@ -249,10 +249,12 @@ struct TensorImp
     if(d_rhs) {
       d_rhs->build_topo(visited, topo);
     }
+    
     if(d_mode == TMode::Flatten)
       for(auto& m : d_flattenp.members)
-        m->build_topo(visited, topo);     // XXX also need to do bias of convo
-
+        m->build_topo(visited, topo);     
+    else if(d_mode == TMode::Convo)
+      d_convop.bias->build_topo(visited, topo);
     topo.push_back(this);
   }
 
@@ -300,7 +302,7 @@ struct TensorImp
       d_lhs->d_grads.array() += d_grads(0,0);
     }
     else if(d_mode == TMode::LogSoftMax) {
-      d_lhs->d_grads.array() += d_grads.array() - d_val.array().exp()*d_grads.sum();
+      d_lhs->d_grads.array() += d_grads.array() - d_val.array().exp() * d_grads.sum();
       // it looks like magic, but it really works: https://stackoverflow.com/questions/35304393/trying-to-understand-code-that-computes-the-gradient-wrt-to-the-input-for-logsof
       // https://github.com/torch/nn/blob/master/lib/THNN/generic/LogSoftMax.c
       // https://math.stackexchange.com/questions/2013050/log-of-softmax-function-derivative
@@ -323,8 +325,6 @@ struct TensorImp
 
       // the output (d_val) has shape 1 + d_lhs (input)  - d_rhs (filters)
 
-      //      std::cout<<"Called for "<<d_val.rows()<<" rows and " << d_val.cols()<<" cols, grads sum "<<d_grads.sum()<<"\n";
-      //      std::cout<<"Our grads:\n"<<d_grads<<"\n";
       if(!d_lhs->d_nograd)
       for(int r = 0 ; r < d_val.rows(); ++r)
         for(int c = 0 ; c < d_val.cols(); ++c)
@@ -338,7 +338,7 @@ struct TensorImp
           d_rhs->d_grads(r,c) += (d_lhs->d_val.block(r, c, d_val.rows(), d_val.cols())*d_grads).sum();
                                          // this is a d_vals sized block
       d_rhs->d_grads.array() /= sqrt(d_grads.rows()*d_grads.cols());
-      d_convop.bias->d_grads(0,0) += d_val.rows() * d_val.cols(); // we zero this explicitly in get grads
+      d_convop.bias->d_grads(0,0) += d_grads.sum(); 
     }
     else if(d_mode == TMode::Max2D) {
       for(int r = 0 ; r < d_lhs->d_val.rows(); r += d_max2dp.kernel) {
@@ -466,7 +466,7 @@ struct Tensor
 
       // aren't these in topo? 
       if((*iter)->d_mode == TMode::Convo) {// UGLY
-        (*iter)->d_convop.bias->d_grads(0,0)=0;
+        (*iter)->d_convop.bias->d_grads.setConstant(0);
       }
       // same?
       if((*iter)->d_mode == TMode::Flatten) {// UGLY
@@ -496,8 +496,8 @@ struct Tensor
   {
     assert(from.size() == to.size());
     for(size_t pos = 0 ; pos < from.size(); ++pos) {
+      assert(from[pos]->d_mode == to[pos]->d_mode);
       if(from[pos]->d_mode == TMode::Parameter) {
-        assert(to[pos]->d_mode == TMode::Parameter);
         to[pos]->d_val = from[pos]->d_val;
       }
     }
@@ -507,8 +507,8 @@ struct Tensor
   {
     assert(from.size() == to.size());
     for(size_t pos = 0 ; pos < from.size(); ++pos) {
+      assert(from[pos]->d_mode == to[pos]->d_mode);
       if(from[pos]->d_mode == TMode::Parameter) {
-        assert(to[pos]->d_mode == TMode::Parameter);
         to[pos]->d_accumgrads += from[pos]->d_accumgrads;
       }
     }
