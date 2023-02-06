@@ -1,5 +1,5 @@
 #include "tensor-layers.hh"
-
+// Model from https://data-flair.training/blogs/handwritten-character-recognition-neural-network/
 struct ConvoAlphabetModel {
   Tensor<float> img{28,28};
   Tensor<float> scores{26, 1};
@@ -44,9 +44,10 @@ struct ConvoAlphabetModel {
     auto output1 = production ? output : output.makeDropout(0.5); 
     auto output2 = makeFunction<ActFunc>(output1);
     auto output3 = makeFunction<ActFunc>(s.fc2.forward(output2)); // -> 128
-    auto output4 = makeFunction<ActFunc>(s.fc3.forward(output3)); // -> 26
+    //    auto output4 = makeFunction<ActFunc>(s.fc3.forward(output3)); // -> 26
+    auto output4 = s.fc3.forward(output3); // -> 26
     scores = makeLogSoftMax(output4);
-    modelloss = -(expected*scores).sum();
+    modelloss = -(expected*scores);
 
     Tensor<float> fact(1,1);
     fact(0,0) = 0.02;
