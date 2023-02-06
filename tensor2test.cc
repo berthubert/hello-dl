@@ -8,7 +8,6 @@
 #include <fcntl.h>
 using namespace std;
 
-
 TEST_CASE("basic tensor")
 {
   Tensor a(4, 2);
