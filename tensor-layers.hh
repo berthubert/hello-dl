@@ -23,6 +23,41 @@ struct TensorLayer
     for(auto& p : d_params)
       p.ptr->load(in);
   }
+
+  void learnAdam(float fact, unsigned int batchno, float alpha=0.001)
+  {
+    if(!batchno)
+      batchno++;
+    const float beta1=0.9, beta2=0.999, eps=1e-08; 
+    for(auto& p : d_params) {
+      if(!p.ptr->d_imp->d_adamval.m.rows()) {
+        p.ptr->d_imp->d_adamval.m = p.ptr->d_imp->d_val;
+        p.ptr->d_imp->d_adamval.m.setZero();
+      }
+      if(!p.ptr->d_imp->d_adamval.v.rows()) {
+        p.ptr->d_imp->d_adamval.v = p.ptr->d_imp->d_val;
+        p.ptr->d_imp->d_adamval.v.setZero();
+      }
+
+      typename Tensor<T>::EigenMatrix g = (fact * p.ptr->getAccumGrad()), g2;
+      p.ptr->d_imp->d_adamval.m = beta1 * p.ptr->d_imp->d_adamval.m + (1.0 - beta1) * g;
+      g2.array() = g.array().square();
+      p.ptr->d_imp->d_adamval.v = beta2 * p.ptr->d_imp->d_adamval.v + (1.0 - beta2) * g2;// .unaryExpr([](const float& f) {
+      //        return f*f;});
+      //      p.ptr->d_imp->d_adamval.v = beta2 * p.ptr->d_imp->d_adamval.v + (1.0 - beta2) * g.square();
+
+      typename Tensor<T>::EigenMatrix mhat = p.ptr->d_imp->d_adamval.m;
+      mhat.array() /= (1.0 - powf(beta1, batchno));
+
+      typename Tensor<T>::EigenMatrix vhat = p.ptr->d_imp->d_adamval.v;
+      //      std::cout<< "before: "<<vhat.array()<< "\n";
+      vhat.array() /= (1.0 - powf(beta2, batchno));
+      //      p.ptr->d_imp->d_val.array() -= alpha * p.ptr->d_imp->d_adamval.m.array() / (p.ptr->d_imp->d_adamval.v.array().sqrt() + eps);
+      p.ptr->d_imp->d_val.array() -= alpha * mhat.array() / (vhat.array().sqrt() + eps);
+    }
+  }
+
+  
   void learn(float lr, float momentum) 
   {
     for(auto& p : d_params) {
@@ -102,7 +137,7 @@ template<typename T, unsigned int ROWS, unsigned int COLS, unsigned int KERNEL,
          unsigned int INLAYERS, unsigned int OUTLAYERS>
 struct Conv2d : TensorLayer<T>
 {
-  std::array<Tensor<T>, OUTLAYERS> d_filters;
+  std::array<Tensor<T>, INLAYERS*OUTLAYERS> d_filters;
   std::array<Tensor<T>, OUTLAYERS> d_bias;
 
   Conv2d()
@@ -149,12 +184,15 @@ struct Conv2d : TensorLayer<T>
     // these filters need to be applied to all IN input layers
     // and the output is the addition of the outputs of those filters
     //    https://d2l.ai/chapter_convolutional-neural-networks/channels.html
-    unsigned int ctr = 0;
+    unsigned int ctr = 0, bctr=0;
     for(auto& p : ret) { // outlayers long
       p.zero();
-      for(auto& p2 : in)
-        p = p +  p2.makeConvo(KERNEL, d_filters.at(ctr), d_bias.at(ctr));
-      ctr++;
+      
+      for(auto& p2 : in) {
+        p = p +  p2.makeConvo(KERNEL, d_filters.at(ctr), d_bias.at(bctr));
+        ctr++;
+      }
+      bctr++;
     }
     return ret;
   }
@@ -194,6 +232,11 @@ struct ModelState
   {
     for(auto& m : d_members)
       m.first->learn(lr, momentum);
+  }
+  void learnAdam(float fact, unsigned int batchno, float alpha=0.001)
+  {
+    for(auto& m : d_members)
+      m.first->learnAdam(fact, batchno, alpha);
   }
 
   void save(std::ostream& out) const

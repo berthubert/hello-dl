@@ -364,6 +364,11 @@ struct TensorImp
   TMode d_mode;
   mutable bool d_haveval = false;
   bool d_nograd{false};
+  struct AdamVals
+  {
+    EigenMatrix m;
+    EigenMatrix v;
+  } d_adamval;
   struct SliceParams
   {
     int r, c;
