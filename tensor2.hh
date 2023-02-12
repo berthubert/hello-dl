@@ -550,6 +550,12 @@ struct Tensor
     zero();
     d_imp->d_val(0,c) = 1;
   }
+  void oneHotRow(int r)
+  {
+    zero();
+    d_imp->d_val(r,0) = 1;
+  }
+
   void constant(float f)
   {
     d_imp->d_mode = TMode::Parameter;
