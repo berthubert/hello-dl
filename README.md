@@ -179,11 +179,15 @@ https://www.nist.gov/itl/products-and-services/emnist-dataset
 https://arxiv.org/pdf/1702.05373v1
 http://yann.lecun.com/exdb/mnist/
 
-# Inspiration
+# Inspiration & Similar projects
 https://github.com/fastai/fastbook/blob/master/04_mnist_basics.ipynb
 
 Also really good:
 https://pytorch.org/tutorials/beginner/nn_tutorial.html
+
+[PicoGPT](https://jaykmody.com/blog/gpt-from-scratch/)
+
+[NanoGPT](https://github.com/karpathy/nanoGPT/)
 
 # Internals
 ~~Use `TrackedNumber` to build networks. You can also run them there if you want, but a faster way is to export them as 'Work' objects, which are a solid slab of contiguous memory.~~
