@@ -14,7 +14,7 @@ public:
   {
     auto iter = d_c2i.find(c);
     if(iter == d_c2i.end()) {
-      std::cout<<("Attempting to find unknown character with value '"+std::to_string((int)c)+"'")<<std::endl;
+      //      std::cout<<("Attempting to find unknown character with value '"+std::to_string((int)c)+"'")<<std::endl;
       return 0;
     }
     return iter->second;
@@ -23,7 +23,7 @@ public:
   {
     auto iter = d_i2c.find(i);
     if(iter == d_i2c.end()) {
-      std::cout<<("Attempting to find unknown integer "+std::to_string(i))<<std::endl;
+      //      std::cout<<("Attempting to find unknown integer "+std::to_string(i))<<std::endl;
       return '?';
     }
     return iter->second;
