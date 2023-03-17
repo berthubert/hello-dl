@@ -7,7 +7,8 @@ already of course, but this one aims to really explain what is going on. Also, w
 Other documents start out from the (very impressive) PyTorch environment, or
 they attempt to math it up from first principles. 
 
-![](img/boxed.png)
+![](img/boxed.png)  
+*([animated version](img/learning.mp4))*
 
 Trying to understand deep learning via PyTorch is like trying to learn
 aerodynamics from flying an Airbus A380. 
@@ -94,7 +95,7 @@ Despite doing some neural network experiments in the 1990s, I'm extremely new to
 <!-- need to address "bagging" -->
 <!-- need to address "batch normalization" -->
 <!-- need to address "data augmentation" -> https://www.tensorflow.org/api_docs/python/tf/keras/preprocessing/image/ImageDataGenerator -->
-
+<!-- good further examples: https://keras.io/examples/ --> 
 # Status
 Pretty rough, but showing signs of doing something real.
 
