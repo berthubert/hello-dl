@@ -19,6 +19,33 @@
 using namespace std;
 time_t g_starttime;
 
+bool g_mutateOnLearn;
+bool g_mutateOnValidate;
+void mutateImage(Tensor<float>& img)
+{
+  Tensor<float>::EigenMatrix orig = img.raw();
+  
+  int cshift = -2 + (random() % 5);
+  int rshift = -2 + (random() % 5);
+  for(int c = 0 ; c < 28; ++c) {
+    for(int r = 0 ; r < 28 ; ++r) {
+      int o_r = r + rshift;
+      int o_c = c + cshift;
+      if(o_r >= 0 && o_c >=0 && o_r < 28 && o_c < 28)
+        img(r, c) = orig(o_r, o_c);
+      else
+        img(r, c) = 0;
+    }
+  }
+
+  for(int n = 0 ; n < 5; ++n) {
+    int r = random()% 28, c = random()% 28;
+    img(r,c)= 1.0 - img(r, c);
+  }
+
+  
+}
+
 template<typename M, typename S>
 void testModel(SQLiteWriter& sqw, const S& s_in, const MNISTReader& mn, unsigned int startID, int batchno, double epoch)
 {
@@ -46,7 +73,11 @@ void testModel(SQLiteWriter& sqw, const S& s_in, const MNISTReader& mn, unsigned
     mn.pushImage(idx, m.img);
     // normalize
     m.img.normalize(0.172575, 0.25);
-    
+
+    if(g_mutateOnValidate) { // corrupt somewhat
+      mutateImage(m.img);
+    }
+
     int label = mn.getLabel(idx) - 1;
     m.expected.oneHotColumn(label);
 
@@ -101,7 +132,10 @@ struct ParMod
       d_mn.pushImage(idx, d_model.img);
         // normalize
       d_model.img.normalize(0.172575, 0.25);
-      
+      if(g_mutateOnLearn) { // corrupt somewhat
+        mutateImage(d_model.img);
+      }
+
       int label = d_mn.getLabel(idx) - 1; // they count from 1 over at NIST!
       d_model.expected.oneHotColumn(label);
       
@@ -148,6 +182,8 @@ int main(int argc, char **argv)
   program.add_argument("--dropout").default_value(false).implicit_value(true);
   program.add_argument("--adam").default_value(false).implicit_value(true);
   program.add_argument("--threads").default_value(4).scan<'i', int>();
+  program.add_argument("--mut-on-learn").default_value(false).implicit_value(true);
+  program.add_argument("--mut-on-validate").default_value(false).implicit_value(true);
   
   try {
     program.parse_args(argc, argv);
@@ -168,6 +204,9 @@ int main(int argc, char **argv)
   cout<<"batch-size: "<<program.get<int>("--batch-size") << endl;
   cout<<"threads: "<<program.get<int>("--threads") << endl;
   cout<<"dropout: "<<program.get<bool>("--dropout") << endl;
+  g_mutateOnLearn=program.get<bool>("mut-on-learn");
+  g_mutateOnValidate=program.get<bool>("mut-on-validate");
+  cout<<"Mutate while learning "<<g_mutateOnLearn<<", while validating: "<<g_mutateOnValidate<<endl;
   if(!program.get<string>("state-file").empty()) {
     cout<<"Loading model state from file '"<< program.get<string>("state-file") <<"'\n";
     loadModelState(s, program.get<string>("state-file"));
