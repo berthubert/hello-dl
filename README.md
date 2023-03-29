@@ -1,5 +1,5 @@
 # hello-dl
-bert@hubertnet.nl - I post about this project on Mastodon as [@bert_hubert@fosstodon.org](https://fosstodon.org/@bert_hubert). A series of associated blog posts is [appearing here](https://berthub.eu/tmp/hello-dl/).
+bert@hubertnet.nl - I post about this project on Mastodon as [@bert_hubert@fosstodon.org](https://fosstodon.org/@bert_hubert). A series of associated blog posts is [here](https://berthub.eu/articles/posts/hello-deep-learning/).
 
 A from scratch introduction to modern machine learning. Many tutorials exist
 already of course, but this one aims to really explain what is going on. Also, we'll develop the demo until it is actually useful on real life data.
@@ -94,7 +94,7 @@ Despite doing some neural network experiments in the 1990s, I'm extremely new to
 <!-- https://github.com/coin-or/ADOL-C - automatic differentiation -->
 <!-- need to address "bagging" -->
 <!-- need to address "batch normalization" -->
-<!-- need to address "data augmentation" -> https://www.tensorflow.org/api_docs/python/tf/keras/preprocessing/image/ImageDataGenerator -->
+
 <!-- good further examples: https://keras.io/examples/ --> 
 # Status
 Pretty rough, but showing signs of doing something real.
