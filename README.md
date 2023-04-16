@@ -105,7 +105,7 @@ learns to recognize handwritten digits in a few seconds (90% accuracy so far).
 We do have a few dependencies:
 
 ```bash
-sudo apt install cmake libeigen3-dev libsqlite3-dev
+sudo apt install cmake libeigen3-dev libsqlite3-dev g++ libz-dev
 ```
 This works for Debian derived systems, but cmake, Eigen and SQLite are
 universally available.
